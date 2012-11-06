@@ -1,0 +1,64 @@
+The Debian Package blitzortung-tracker
+--------------------------------------
+
+On older systems (prior to Debian Squeeze or Ubuntu 10.4, which do not include the boost math library, data statistics in blitzortung-data is not available, in this case libboost-math-dev is not available and can be omitted from the following commands.
+
+The minimum gcc version required is 4.4.
+
+To build the package, first install the missing dependencies via
+> sudo apt-get install debhelper build-essential autotools-dev libtool fakeroot
+> sudo apt-get install libboost-program-options-dev libboost-date-time-dev libboost-regex-dev libboost-math-dev libcppunit-dev liblog4cpp5-dev libjson0-dev
+
+> make -f Makefile.cvs
+
+The go to the source package directory blitzortung-tracker to create the package via
+
+> dpkg-buildpackage
+
+After the successful compilation, you will find a debian package of blitzortung-tracker in the folder which contains
+the package source directory.
+
+You can now install the package via
+>  sudo dpkg -i ../blitzortung-tracker_<version>_<architecture>.deb
+(the filename depends on the given architecture)
+
+After the software is installed, edit the settings file
+  /etc/default/blitzortung-tracker
+to contain your username/password and the desired baudrate and gps settings.
+
+After restarting the tracker-service via
+> /etc/init.d/blitzortung-tracker restart
+the new configuration is active.
+
+The software should start automatically after a reboot.
+
+ 
+Building on non Debian/Ubuntu systems
+-------------------------------------
+
+* Requirements
+  * automake (>= 2.60 ?)
+  * autoconf (>= 1.10 ?)
+  * libtool (>= 1.5 ?)
+  * liblog4cpp5 (>= 1.0 ?)
+  * libcppunit (>= 1.12 ?)
+  * libjson (>= 0.9 ?)
+  * libboost-date-time (>= 1.34 ?)
+  * libboost-regex (>= 1.34 ?)
+  * libboost-program-options (>= 1.34 ?)
+  * libboost-math (>= 1.38) is optional
+
+prepare makefiles via
+> make -f Makefile.cvs
+
+build package via
+> make
+
+install via
+> make install
+
+By default the software is installed to /usr/local, other targets can be set by calling
+> ./configure --prefix=<desired path prefix>
+after make -f Makefile.cvs.
+
+ -- Andreas Wuerl <blitzortung@tryb.de>  Mon, 13 Jun 2011 09:32:00 +0200

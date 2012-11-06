@@ -1,0 +1,161 @@
+#!/usr/bin/env python
+
+import sys
+import os
+
+import datetime
+import pytz
+
+import blitzortung
+
+def retrieve_from_archive(now):
+    ''' this is not supported by web.Url() at the moment '''
+
+    config = blitzortung.Config()
+
+    url = blitzortung.web.Url()
+
+    url.add('map', 0)
+    url.add('mode', 4)
+    url.add('source', 'system_strikes')
+
+    strokedb = blitzortung.db.Stroke()
+
+    starttime = strokedb.get_latest_time()
+
+    if starttime == None:
+        starttime = datetime.datetime(2009,1,1,0,0,0).replace(tzinfo=pytz.UTC)
+    else:
+        starttime = starttime.astimezone(pytz.UTC)
+
+    if not starttime > now - datetime.timedelta(seconds=180):
+
+        if starttime + datetime.timedelta(days=1) > now:
+            endtime = now - datetime.timedelta(seconds=180)
+        else:
+            endtime = starttime + datetime.timedelta(days=1)
+
+        timefmt = '%d.%m.%Y %H:%M:%S'
+        sys.stdout.write('retrieving strokes from '+starttime.strftime(timefmt) + ' to ' + endtime.strftime(timefmt))
+
+        timedelta = endtime - starttime
+        timedelta_ns = ( ( ( timedelta.days * 24 * 3600 ) + timedelta.seconds ) * 1000000 + timedelta.microseconds ) * 1000
+
+        url.add('year', starttime.date().year)
+        url.add('mon', starttime.date().month)
+        url.add('day', starttime.date().day)
+        url.add('hour', starttime.time().hour)
+        url.add('min', starttime.time().minute)
+        url.add('sec', starttime.time().second)
+        url.add('pre_nano_sec', 0)
+        url.add('post_nano_sec', timedelta_ns)
+        url.add('username', config.getUsername())
+        url.add('password', config.getPassword())
+
+        lines = url.read().split('\n')
+
+        lines = lines[1:-1]
+
+        count = 0
+        for line in lines:
+            stroke = blitzortung.data.Stroke(line)
+            strokedb.insert(stroke)
+            count += 1
+        strokedb.commit()
+
+        strokedb.setLatestTime(endtime)
+
+        sys.stdout.write(' => ' + str(count) + ' strokes\n')
+
+def retrieve_strokes_for(region):
+    config = blitzortung.Config()
+
+    stroke_source = blitzortung.web.Strokes(config, region)
+
+    stroke_data = stroke_source.read()
+    
+    if stroke_data:
+    
+	strokedb = blitzortung.db.Stroke()
+
+	starttime = strokedb.get_latest_time(region)
+
+	for line in stroke_data.split('\n'):
+	    if line.strip() != "":
+		stroke_builder = blitzortung.builder.Stroke()
+		stroke_builder.from_string(line)
+		stroke = stroke_builder.build()
+
+		if starttime == None or \
+		   (stroke.get_timestamp() > starttime and stroke.get_timestamp() - starttime != datetime.timedelta()):
+		    strokedb.insert(stroke, region)
+
+	strokedb.commit()
+
+def retrieve_strokes():
+
+    # TODO add file based lock around retrieve call
+
+    for region in [1, 2, 3]:
+        retrieve_strokes_for(region)
+
+
+
+
+def retrieve_station_info():
+    config = blitzortung.Config()
+
+# TODO add file based lock around retrieve call
+
+      
+    station_source = blitzortung.web.Stations(config)
+    station_data = station_source.read()
+
+    if station_data:
+	station_db = blitzortung.db.Station()
+	station_offline_db = blitzortung.db.StationOffline()
+
+	stations = station_db.select()
+	stations_by_number = {}
+	for station in stations:
+	  stations_by_number[station.get_number()] = station
+
+	stations_offline = station_offline_db.select()
+	stations_offline_by_number = {}
+	for station_offline in stations_offline:
+	  stations_offline_by_number[station_offline.get_number()] = station_offline
+
+	now = datetime.datetime.utcnow()
+	offline_limit_time = now - datetime.timedelta(minutes=30)
+	offline_limit_time = offline_limit_time.replace(tzinfo=pytz.UTC)
+
+	for line in station_data.split('\n'):
+	    if line.strip() != "":
+		station_builder = blitzortung.builder.Station()
+		station_builder.from_string(line)
+                station = station_builder.build()
+
+		if station.get_number() > 0:
+		  if station.get_number() not in stations_by_number or \
+		     station.get_number() in stations_by_number and \
+		     station.get_short_name() == stations_by_number[station.get_number()].get_short_name() and \
+		     station != stations_by_number[station.get_number()] and \
+		     station.get_timestamp() != stations_by_number[station.get_number()].get_timestamp():
+		    station_db.insert(station)
+
+		  if station.get_timestamp() >= offline_limit_time:
+		    if station.get_number() in stations_offline_by_number:
+		      station_offline = stations_offline_by_number[station.get_number()]
+		      station_offline.set_end(station.get_timestamp())
+		      station_offline_db.update(station_offline)
+		  else:
+		    if station.get_number() not in stations_offline_by_number and station.get_timestamp().date().year > 2000:
+		      station_offline = blitzortung.data.StationOffline(0, station.get_number(), station.get_timestamp())
+		      station_offline_db.insert(station_offline)
+	
+	station_db.commit()
+	station_offline_db.commit()
+
+if __name__ == "__main__":
+  retrieve_strokes()
+  retrieve_station_info()

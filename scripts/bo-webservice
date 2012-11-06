@@ -1,0 +1,4 @@
+#!/bin/bash
+
+twistd --pidfile /var/run/bo-webservice.pid -oy $(dirname $0)/bo-webservice.tac 
+#twistd --pidfile test.pid -noy $(dirname $0)/bo-webservice.tac 

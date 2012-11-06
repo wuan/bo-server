@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+
+import sys
+import os
+
+import datetime
+import pytz
+import subprocess
+
+import blitzortung
+
+region = 1
+config = blitzortung.Config()
+
+station_ids = []
+
+target_folder_name = "/var/cache/blitzortung/raw/archive/%Y/%m/%d"
+
+now = datetime.datetime.utcnow()
+reference_time = (now - datetime.timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+
+target_folder_for_day_name = reference_time.strftime(target_folder_name)
+if not os.path.exists(target_folder_for_day_name):
+  os.makedirs(target_folder_for_day_name)
+
+station_source = blitzortung.web.Stations(config, region)
+stations = station_source.read()
+if stations:
+  for station in stations.split('\n'):
+    station_ids.append(station.split(" ")[1])
+
+for index, station_id in enumerate(station_ids):
+  raw_data_source = blitzortung.web.Raw(config, region, station_id, reference_time.hour)
+
+  try:
+    raw_data = raw_data_source.read().strip()
+  except:
+    continue
+
+  if raw_data:
+    count = 0
+    bo_data = subprocess.Popen(['bo-data', '-o', os.path.join(target_folder_name, station_id + '_%Y%m%d.bor')], stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    check_date = True
+    for raw_line in raw_data.split('\n'):
+      fields = raw_line.split(" ")
+      if check_date:
+	if datetime.datetime.strptime(fields[0], "%Y-%m-%d").date() != reference_time.date():
+	  ' date mismatch -> stop adding data '
+	  break
+	check_date = False
+      bo_data.stdin.write(raw_line + '\n')
+      count += 1
+#    bo_data.stdin.close()
+    (_, stderr) = bo_data.communicate()
+
+    if stderr:
+      print index, station_id, count, stderr.strip()

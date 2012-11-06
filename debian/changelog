@@ -1,0 +1,7 @@
+blitzortung-server (1.1) unstable; urgency=low
+
+  * extracted bo-data from blitzortung-tracker 
+  * extracted scripts from blitzortung-tracker-tools
+
+ -- Andreas Wuerl <blitzortung@tryb.de>  Tue, 06 Nov 2012 21:15:36 +0100
+
