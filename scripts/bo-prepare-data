@@ -1,0 +1,15 @@
+#!/usr/bin/env python
+
+import glob
+import datetime
+
+ARCHIVE_DATA_PATH='/var/cache/blitzortung/raw/archive/%Y/%m/%d'
+
+now = datetime.datetime.utcnow()
+
+time = now - datetime.timedelta(hours=1)
+
+data_path = time.strftime(ARCHIVE_DATA_PATH)
+
+print data_path
+
