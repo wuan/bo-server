@@ -10,7 +10,6 @@ import subprocess
 import blitzortung
 
 region = 1
-config = blitzortung.Config()
 
 station_ids = []
 
@@ -23,14 +22,18 @@ target_folder_for_day_name = reference_time.strftime(target_folder_name)
 if not os.path.exists(target_folder_for_day_name):
   os.makedirs(target_folder_for_day_name)
 
-station_source = blitzortung.web.Stations(config, region)
+station_source = blitzortung.web.stations()
+station_source.set_region(region)
 stations = station_source.read()
 if stations:
   for station in stations.split('\n'):
     station_ids.append(station.split(" ")[1])
 
 for index, station_id in enumerate(station_ids):
-  raw_data_source = blitzortung.web.Raw(config, region, station_id, reference_time.hour)
+  raw_data_source = blitzortung.web.raw()
+  raw_data_source.set_region(region)
+  raw_data_source.set_station_id(station_id)
+  raw_data_source.set_hour(reference_time.hour)
 
   try:
     raw_data = raw_data_source.read().strip()

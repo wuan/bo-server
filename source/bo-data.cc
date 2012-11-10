@@ -69,7 +69,7 @@ class JsonOutput : public AbstractOutput {
       jsonArray_ = json_object_new_array();
 
       pt::time_facet *timefacet = new pt::time_facet();
-      timefacet->format("%Y-%m-%d %H:%M:%S");
+      timefacet->format("%Y-%m-%d %H:%M:%S.%f");
       secondsTimestamp_.imbue(std::locale(std::locale::classic(), timefacet));
     }
 

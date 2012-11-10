@@ -8,75 +8,16 @@ import pytz
 
 import blitzortung
 
-def retrieve_from_archive(now):
-    ''' this is not supported by web.Url() at the moment '''
-
-    config = blitzortung.Config()
-
-    url = blitzortung.web.Url()
-
-    url.add('map', 0)
-    url.add('mode', 4)
-    url.add('source', 'system_strikes')
-
-    strokedb = blitzortung.db.Stroke()
-
-    starttime = strokedb.get_latest_time()
-
-    if starttime == None:
-        starttime = datetime.datetime(2009,1,1,0,0,0).replace(tzinfo=pytz.UTC)
-    else:
-        starttime = starttime.astimezone(pytz.UTC)
-
-    if not starttime > now - datetime.timedelta(seconds=180):
-
-        if starttime + datetime.timedelta(days=1) > now:
-            endtime = now - datetime.timedelta(seconds=180)
-        else:
-            endtime = starttime + datetime.timedelta(days=1)
-
-        timefmt = '%d.%m.%Y %H:%M:%S'
-        sys.stdout.write('retrieving strokes from '+starttime.strftime(timefmt) + ' to ' + endtime.strftime(timefmt))
-
-        timedelta = endtime - starttime
-        timedelta_ns = ( ( ( timedelta.days * 24 * 3600 ) + timedelta.seconds ) * 1000000 + timedelta.microseconds ) * 1000
-
-        url.add('year', starttime.date().year)
-        url.add('mon', starttime.date().month)
-        url.add('day', starttime.date().day)
-        url.add('hour', starttime.time().hour)
-        url.add('min', starttime.time().minute)
-        url.add('sec', starttime.time().second)
-        url.add('pre_nano_sec', 0)
-        url.add('post_nano_sec', timedelta_ns)
-        url.add('username', config.getUsername())
-        url.add('password', config.getPassword())
-
-        lines = url.read().split('\n')
-
-        lines = lines[1:-1]
-
-        count = 0
-        for line in lines:
-            stroke = blitzortung.data.Stroke(line)
-            strokedb.insert(stroke)
-            count += 1
-        strokedb.commit()
-
-        strokedb.setLatestTime(endtime)
-
-        sys.stdout.write(' => ' + str(count) + ' strokes\n')
-
 def retrieve_strokes_for(region):
-    config = blitzortung.Config()
 
-    stroke_source = blitzortung.web.Strokes(config, region)
+    stroke_source = blitzortung.web.strokes()
+    stroke_source.set_region(region)
 
     stroke_data = stroke_source.read()
     
     if stroke_data:
     
-	strokedb = blitzortung.db.Stroke()
+	strokedb = blitzortung.db.stroke()
 
 	starttime = strokedb.get_latest_time(region)
 
@@ -103,17 +44,17 @@ def retrieve_strokes():
 
 
 def retrieve_station_info():
-    config = blitzortung.Config()
 
 # TODO add file based lock around retrieve call
 
       
-    station_source = blitzortung.web.Stations(config)
+    station_source = blitzortung.web.stations()
+
     station_data = station_source.read()
 
     if station_data:
-	station_db = blitzortung.db.Station()
-	station_offline_db = blitzortung.db.StationOffline()
+	station_db = blitzortung.db.station()
+	station_offline_db = blitzortung.db.station_offline()
 
 	stations = station_db.select()
 	stations_by_number = {}

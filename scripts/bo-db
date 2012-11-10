@@ -129,7 +129,7 @@ if options.area:
     area = area.envelope
 
 # open stroke database
-strokedb = blitzortung.db.Stroke()
+strokedb = blitzortung.db.stroke()
 
 # set data parameters
 strokedb.set_srid(options.srid)
