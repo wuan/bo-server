@@ -17,11 +17,15 @@ DATE_FORMAT='%Y%m%d'
 TIME_FORMAT='%H%M'
 SECONDS_FORMAT='%S'
 
-def parse_time(date_string, time_string, description):
+def parse_time(date_string, time_string, description, is_endtime=False):
   try:
+    has_seconds = len(time_string) > 4
     tmpdate = datetime.datetime.strptime(date_string, DATE_FORMAT).date()
-    tmptime = datetime.datetime.strptime(time_string, TIME_FORMAT + ( SECONDS_FORMAT if len(time_string) > 4 else '')).time()
-    return tz.localize(datetime.datetime.combine(tmpdate, tmptime), is_dst=True)
+    tmptime = datetime.datetime.strptime(time_string, TIME_FORMAT + ( SECONDS_FORMAT if has_seconds else '')).time()
+    parsed_time = tz.localize(datetime.datetime.combine(tmpdate, tmptime), is_dst=True)
+    if is_endtime:
+      parsed_time += (datetime.timedelta(seconds=1) if has_seconds else datetime.timedelta(minutes=1))
+    return parsed_time
   except:
     print "parse error in %s" % description
     sys.exit(5)
@@ -52,6 +56,7 @@ def prepare_raster_if_applicable(options, area):
 tz = pytz.timezone('UTC')
 endtime = datetime.datetime.utcnow().replace(tzinfo=tz)
 starttime = endtime - datetime.timedelta(hours=1)
+endtime -= datetime.timedelta(minutes=1)
 
 parser = OptionParser()
 
@@ -116,8 +121,8 @@ if options.endtime == 'default':
   options.endtime = endtime.strftime(TIME_FORMAT)
   
 starttime = parse_time(options.startdate, options.starttime, "starttime")
-endtime = parse_time(options.enddate, options.endtime, "endtime")
-  
+endtime = parse_time(options.enddate, options.endtime, "endtime", is_endtime=True)
+ 
 area = None
 if options.area:
   try:
