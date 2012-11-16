@@ -1,8 +1,12 @@
 #!/usr/bin/env python
+# -*- coding: utf8 -*-
 
+import subprocess
 import glob
 import itertools
 import datetime
+import math
+import numpy as np
 
 import blitzortung
 
@@ -10,9 +14,16 @@ ARCHIVE_DATA_PATH='/var/cache/blitzortung/raw/archive/%Y/%m/%d'
 
 now = datetime.datetime.utcnow()
 
-start_time = now - datetime.timedelta(hours=1)
+start_time = now - datetime.timedelta(hours=2)
+start_time = start_time.replace(second=0, microsecond=0)
+
+#start_time = start_time.replace(day=10, month=11, hour=20, minute=0)
+
+end_time = start_time + datetime.timedelta(minutes=59)
 
 data_path = start_time.strftime(ARCHIVE_DATA_PATH)
+
+signal_velocity = blitzortung.calc.SignalVelocity()
 
 raw_events = []
 
@@ -20,55 +31,157 @@ file_index = 0
 for data_file_name in glob.glob(data_path + '/*.bor'):
   data_file = blitzortung.files.Raw(data_file_name)
 
-  time_string = start_time.strftime('%H%M')
-  raw_data = data_file.get_data(time_string, time_string)
+  raw_data = data_file.get_data(start_time.strftime("%H%M"), end_time.strftime("%H%M"))
 
   if raw_data:
     for entry in raw_data:
       entry.index = file_index
+      entry.is_consumed = False
     raw_events += raw_data
     file_index += 1
 
 raw_events.sort()
 
+subprocess.call(['bo-db', start_time.strftime('--startdate=%Y%m%d'), start_time.strftime('--starttime=%H%M'), end_time.strftime('--enddate=%Y%m%d'), end_time.strftime('--endtime=%H%M')], stdout=open('real_strokes.txt', 'w'))
+
 last_event1 = None
 
-for i in range(len(raw_events)-1):
-  event1 = raw_events[i]
+with open('strokes.txt', 'w') as output_file:
+  for i in range(len(raw_events)-1):
+    event1 = raw_events[i]
 
-  if last_event1 and last_event1 == event1 and last_event1.index == event1.index:
-    continue
-  last_event1 = event1
-
-  events = [event1]
-
-  last_event2 = None
-
-  for j in range(i, len(raw_events)):
-    event2 = raw_events[j]
+    if event1.is_consumed:
+      continue
 
     # filter duplicate events
-    if last_event2 and last_event2 == event2 and last_event2.index == event2.index:
+    if last_event1 and last_event1 == event1 and last_event1.index == event1.index:
       continue
-    last_event2 = event2
+    last_event1 = event1
 
-    distance = event1.distance_to(event2)
+    events = [event1]
 
-    if distance < 1.0:
-      continue
+    last_event2 = None
 
-    time_difference = event1.ns_difference_to(event2)
+    for j in range(i, len(raw_events)):
+      event2 = raw_events[j]
 
-    global_time_difference_limit = 1000000 * 3
+      if event2.is_consumed:
+	continue
 
-    if time_difference > global_time_difference_limit:
-      break
+      # filter duplicate events
+      if last_event2 and last_event2 == event2 and last_event2.index == event2.index:
+	continue
+      last_event2 = event2
 
-    time_difference_limit = distance * 3;
+      try:
+	distance = event1.distance_to(event2)
+      except ValueError:
+	print event1, event2
+      if distance < 1.0:
+	continue
 
-    if time_difference > time_difference_limit:
-      continue
-    
-    events.append(event2)
-    print i,j, event1.index, event2.index, distance, time_difference, time_difference_limit, event2
-  print len(events)
+      time_difference = event1.ns_difference_to(event2)
+
+      global_time_difference_limit = 1000000 * 3
+
+      if time_difference > global_time_difference_limit:
+	break
+
+      time_difference_limit = distance * 3;
+
+      if time_difference > time_difference_limit:
+	continue
+
+      events.append(event2)
+
+    if len(events) >= 6:
+      selected_events = [events[i] for i in range(3)]
+      solver = blitzortung.calc.ThreePointSolver(selected_events)
+      solutions = solver.get_solutions()
+
+      for index, three_point_solution in enumerate(solutions):
+
+	results = []
+	exact_event_count = 0
+	fit_events = []
+	fit_event_count = 0
+	for idx, event in enumerate(events):
+	  distance = three_point_solution.distance_to(event)
+	  distance_time = signal_velocity.get_distance_time(distance)
+	  time_difference = -event.ns_difference_to(three_point_solution)
+
+	  us_residual = (time_difference - distance_time)/1000.0
+	  if abs(us_residual) < 50:
+	    event.distance_index = fit_event_count 
+	    event.distance = distance
+	    fit_event_count += 1
+	    fit_events.append(event)
+	    if abs(us_residual) < 10:
+	      exact_event_count += 1
+	  results.append("    %d %.1f" %( idx, us_residual))
+
+	if len(fit_events) >= 6:
+	  print "  analytic: %d %s %.4f %.4f %d/%d/%d " %(index, str(three_point_solution.get_timestamp()), three_point_solution.get_x(), three_point_solution.get_y(), exact_event_count, len(fit_events), len(events))
+
+	  for index,event in enumerate(fit_events):
+	    event.azimuth = three_point_solution.azimuth_to(event)
+
+	  fit_events.sort(key=lambda event: event.azimuth)
+
+	  for index,event in enumerate(fit_events):
+	    event.azimuth_index = index
+
+	  azimuth_min = fit_events[0].azimuth
+	  azimuth_max = fit_events[-1].azimuth
+	  azimuth_range = azimuth_max - azimuth_min
+
+	  fit_events.sort(key=lambda event: event.distance_index)
+
+	  distance_min = fit_events[0].distance
+	  distance_max = fit_events[-1].distance
+	  distance_range = distance_max - distance_min
+	  
+	  print "            distance: %.1f - %.1f km, azimuth: %.1f° - %.1f° (delta %.1f°)" % (distance_min / 1000, distance_max / 1000, azimuth_min / math.pi * 180, azimuth_max / math.pi * 180, azimuth_range / math.pi * 180)
+
+	  for event in fit_events:
+	      print "      %6.1f %2d %6.1f %2d %6.1f %s" % (three_point_solution.get_residual_time_at(event), event.distance_index, event.distance / 1000, event.azimuth_index, event.azimuth / math.pi * 180, str(event))
+
+	  least_fit_events = fit_events[:12]
+	  ls_fit = blitzortung.calc.LeastSquareFit(three_point_solution, least_fit_events, signal_velocity)
+	 
+	  while ls_fit.requires_another_iteration():
+	    
+	    ls_fit.perform_fit_step()
+
+	  fit_solution = ls_fit.get_solution()
+
+  	  three_point_to_fit_distance = three_point_solution.distance_to(fit_solution)
+
+	  print "    LS-Fit: iterations: %d, sum: %.1f, change: %.5f, 3p_fit_dist: %.1f, param: %s" % (ls_fit.get_number_of_iterations(), ls_fit.get_least_square_sum(),ls_fit.get_least_square_change(), three_point_to_fit_distance / 1000, ' '.join(['%.3f' % ls_fit.parameters[index] for index in range(0, len(ls_fit.parameters))])), ls_fit.is_successful()
+
+
+  	  if ls_fit.is_successful() and ls_fit.get_least_square_sum() < 20.0:
+	    consumed_count = 0
+	    for event in events:
+	      if ls_fit.get_residual_time_at(event) < 500.0:
+	        event.is_consumed = True
+		consumed_count += 1
+
+	    output_file.write("%s %d %d %d %.1f %.1f %.1f %.1f %.1f\n" % (str(fit_solution), len(least_fit_events), len(fit_events), consumed_count, ls_fit.get_least_square_sum(), three_point_to_fit_distance / 1000, distance_min / 1000, distance_max / 1000, azimuth_range / math.pi * 180))
+
+
+	  values = np.zeros(len(least_fit_events))
+	  for index, event in enumerate(least_fit_events):
+	    residual_time = ls_fit.get_residual_time_at(event)
+	    values[index] = residual_time
+	    print "      %6.1f %s" % (residual_time, str(event))
+
+
+	  print "median:", np.average(values), "variance:", np.var(values), "std deviation:", np.std(values)
+
+
+#for result in results:
+#	  print result
+	  
+
+

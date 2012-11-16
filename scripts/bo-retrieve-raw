@@ -53,7 +53,6 @@ for index, station_id in enumerate(station_ids):
 	check_date = False
       bo_data.stdin.write(raw_line + '\n')
       count += 1
-#    bo_data.stdin.close()
     (_, stderr) = bo_data.communicate()
 
     if stderr:
