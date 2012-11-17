@@ -297,15 +297,25 @@ void addStreamToInputFile(std::istream& istream, const std::string& outputFile) 
   }
 }
 
-void cleanupFile(const std::string& cleanupFile) {
+void cleanupFile(const std::string& cleanupFile, bo::Logger& logger) {
   blitzortung::data::Events events;
 
   events.readFromFile(cleanupFile);
 
+  int size_before_unique = events.size();
+
   // sort events and remove duplicate elements with identical timestamp
   events.unique();
 
-  events.writeToFile(cleanupFile);
+  int size_after_unique = events.size();
+
+  if (size_after_unique != size_before_unique) {
+    if (logger.isInfoEnabled()) {
+      logger.infoStream() << "cleanup: reduced events " << size_before_unique << " -> " << size_after_unique;
+    }
+
+    events.writeToFile(cleanupFile);
+  }
 }
 
 void printFileInfo(const std::string& inputFile) {
@@ -399,7 +409,7 @@ int main(int argc, char **argv) {
   }
 
   if (vm.count("cleanup-file")) {
-    cleanupFile(fileName);
+    cleanupFile(fileName, logger);
     return 0;
   }
 
