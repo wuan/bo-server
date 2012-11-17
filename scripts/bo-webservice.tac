@@ -133,7 +133,7 @@ class Blitzortung(jsonrpc.JSONRPC):
   def jsonrpc_get_strokes(self, minute_length, min_id=None):
     minute_length = self.__force_range(minute_length, 0, 24*60)
 
-    strokedb = blitzortung.db.Stroke()
+    strokedb = blitzortung.db.stroke()
 
     endtime = datetime.datetime.utcnow()
     endtime = endtime.replace(tzinfo=pytz.UTC)
@@ -193,7 +193,7 @@ class Blitzortung(jsonrpc.JSONRPC):
     minute_length = self.__force_range(minute_length, 0, 24 * 60)
     minute_offset = self.__force_range(minute_offset, -24 * 60 + minute_length, 0)
 
-    strokedb = blitzortung.db.Stroke()
+    strokedb = blitzortung.db.stroke()
 
     endtime = datetime.datetime.utcnow()
     endtime = endtime.replace(microsecond = 0)
@@ -230,7 +230,7 @@ class Blitzortung(jsonrpc.JSONRPC):
     return response
 
   def jsonrpc_get_stations(self):
-    stationsdb = blitzortung.db.Station()
+    stationsdb = blitzortung.db.station()
 
     reference_time = time.time()
     stations = stationsdb.select()
