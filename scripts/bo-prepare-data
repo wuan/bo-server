@@ -35,12 +35,15 @@ for data_file_name in glob.glob(data_path + '/*.bor'):
 
   if raw_data:
     for entry in raw_data:
-      entry.index = file_index
+      entry.participant_index = file_index
       entry.is_consumed = False
     raw_events += raw_data
     file_index += 1
 
 raw_events.sort()
+
+for index, event in enumerate(raw_events):
+  event.index = index
 
 subprocess.call(['bo-db', start_time.strftime('--startdate=%Y%m%d'), start_time.strftime('--starttime=%H%M'), end_time.strftime('--enddate=%Y%m%d'), end_time.strftime('--endtime=%H%M')], stdout=open('real_strokes.txt', 'w'))
 
@@ -53,8 +56,8 @@ with open('strokes.txt', 'w') as output_file:
     if event1.is_consumed:
       continue
 
-    # filter duplicate events
-    if last_event1 and last_event1 == event1 and last_event1.index == event1.index:
+    # ingore multiple events from the same participant
+    if last_event1 and last_event1 == event1 and last_event1.participant_index == event1.participant_index:
       continue
     last_event1 = event1
 
@@ -68,8 +71,8 @@ with open('strokes.txt', 'w') as output_file:
       if event2.is_consumed:
 	continue
 
-      # filter duplicate events
-      if last_event2 and last_event2 == event2 and last_event2.index == event2.index:
+      # ignore multiple events from the same participant
+      if last_event2 and last_event2 == event2 and last_event2.participant_index == event2.participant_index:
 	continue
       last_event2 = event2
 
@@ -150,7 +153,6 @@ with open('strokes.txt', 'w') as output_file:
 	  ls_fit = blitzortung.calc.LeastSquareFit(three_point_solution, least_fit_events, signal_velocity)
 	 
 	  while ls_fit.requires_another_iteration():
-	    
 	    ls_fit.perform_fit_step()
 
 	  fit_solution = ls_fit.get_solution()
