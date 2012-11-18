@@ -288,6 +288,7 @@ resource = HTTPAuthSessionWrapper(portal, [credentialFactory])
 
 # With the wrapped root, we can set up the server as usual.
 #site = server.Site(resource=wrappedRoot)
+config = blitzortung.config.config()
 site = server.Site(root)
-jsonrpcServer = internet.TCPServer(7080, site)
+jsonrpcServer = internet.TCPServer(config.get_webservice_port(), site)
 jsonrpcServer.setServiceParent(application)
