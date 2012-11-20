@@ -3,7 +3,7 @@
 import blitzortung
 
 def get_stations():
-  station_db = blitzortung.db.Station()
+  station_db = blitzortung.db.station()
 
   return station_db.select()
 

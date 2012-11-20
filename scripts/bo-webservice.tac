@@ -89,21 +89,22 @@ class RasterData(object):
     return  minimum + math.floor((maximum - minimum)/delta)*delta
 
   def get_for(self, baselength):
-#if baselength not in self.raster_data:
+    if baselength not in self.raster_data:
+        print "create raster data", self, "for baselength", baselength
 
-    ref_lon = (self.min_lon + self.max_lon) / 2.0
-    ref_lat = (self.min_lat + self.max_lat) / 2.0
+	ref_lon = (self.min_lon + self.max_lon) / 2.0
+	ref_lat = (self.min_lat + self.max_lat) / 2.0
 
-    utm_x, utm_y = pyproj.transform(WGS84, self.coord_sys, ref_lon, ref_lat)
-    lon_d, lat_d = pyproj.transform(self.coord_sys, WGS84, utm_x + baselength, utm_y + baselength)
+	utm_x, utm_y = pyproj.transform(WGS84, self.coord_sys, ref_lon, ref_lat)
+	lon_d, lat_d = pyproj.transform(self.coord_sys, WGS84, utm_x + baselength, utm_y + baselength)
 
-    delta_lon = lon_d - ref_lon
-    delta_lat = lat_d - ref_lat
+	delta_lon = lon_d - ref_lon
+	delta_lat = lat_d - ref_lat
 
-    max_lon = self.fix_max(self.min_lon, self.max_lon, delta_lon)
-    max_lat = self.fix_max(self.min_lat, self.max_lat, delta_lat)
+	max_lon = self.fix_max(self.min_lon, self.max_lon, delta_lon)
+	max_lat = self.fix_max(self.min_lat, self.max_lat, delta_lat)
 
-    self.raster_data[baselength] = blitzortung.geom.Raster(self.min_lon, max_lon, self.min_lat, max_lat, delta_lon, delta_lat, blitzortung.geom.Geometry.DefaultSrid)
+	self.raster_data[baselength] = blitzortung.geom.Raster(self.min_lon, max_lon, self.min_lat, max_lat, delta_lon, delta_lat, blitzortung.geom.Geometry.DefaultSrid)
 
     return self.raster_data[baselength]
 

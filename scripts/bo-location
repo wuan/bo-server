@@ -43,7 +43,7 @@ parser.add_option("-s","--srid", dest="srid", default=blitzortung.geom.Geometry.
 
 ' open access to location database '
 
-locationdb = blitzortung.db.Location()
+locationdb = blitzortung.db.location()
 
 if options.doimport:
   locationdb.delete_all() 
