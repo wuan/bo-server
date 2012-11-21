@@ -90,8 +90,6 @@ class RasterData(object):
 
   def get_for(self, baselength):
     if baselength not in self.raster_data:
-        print "create raster data", self, "for baselength", baselength
-
 	ref_lon = (self.min_lon + self.max_lon) / 2.0
 	ref_lat = (self.min_lat + self.max_lat) / 2.0
 
@@ -208,7 +206,7 @@ class Blitzortung(jsonrpc.JSONRPC):
     raster_data = raster[region].get_for(raster_baselength)
 
     raster_strokes = strokedb.select_raster(raster_data, time_interval)
-    histogram = strokedb.select_histogram(minute_length, region, 5)
+    histogram = strokedb.select_histogram(minute_length, minute_offset, region, 5)
 
     query_time = time.time()
 
