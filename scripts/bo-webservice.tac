@@ -289,5 +289,6 @@ resource = HTTPAuthSessionWrapper(portal, [credentialFactory])
 #site = server.Site(resource=wrappedRoot)
 config = blitzortung.config.config()
 site = server.Site(root)
+site.displayTracebacks = False
 jsonrpcServer = internet.TCPServer(config.get_webservice_port(), site)
 jsonrpcServer.setServiceParent(application)
