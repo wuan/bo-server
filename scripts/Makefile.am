@@ -7,4 +7,5 @@ bin_SCRIPTS = \
 	bo-location \
 	bo-webservice \
 	bo-webservice.tac \
+	bo-webservice-insertlog \
 	$(NULL)

@@ -33,22 +33,21 @@ def retrieve_strokes_for(region):
 
 	strokedb.commit()
 
-def retrieve_strokes():
+def retrieve_strokes(regions):
 
     # TODO add file based lock around retrieve call
 
-    for region in [1, 2, 3]:
+    for region in regions:
         retrieve_strokes_for(region)
 
 
 
-
-def retrieve_station_info():
+def retrieve_station_info_for(region):
 
 # TODO add file based lock around retrieve call
-
       
     station_source = blitzortung.web.stations()
+    station_source.set_region(region)
 
     station_data = station_source.read()
 
@@ -56,12 +55,12 @@ def retrieve_station_info():
 	station_db = blitzortung.db.station()
 	station_offline_db = blitzortung.db.station_offline()
 
-	stations = station_db.select()
+	stations = station_db.select(region=region)
 	stations_by_number = {}
 	for station in stations:
 	  stations_by_number[station.get_number()] = station
 
-	stations_offline = station_offline_db.select()
+	stations_offline = station_offline_db.select(region=region)
 	stations_offline_by_number = {}
 	for station_offline in stations_offline:
 	  stations_offline_by_number[station_offline.get_number()] = station_offline
@@ -82,21 +81,29 @@ def retrieve_station_info():
 		     station.get_short_name() == stations_by_number[station.get_number()].get_short_name() and \
 		     station != stations_by_number[station.get_number()] and \
 		     station.get_timestamp() != stations_by_number[station.get_number()].get_timestamp():
-		    station_db.insert(station)
+		    station_db.insert(station, region)
 
 		  if station.get_timestamp() >= offline_limit_time:
 		    if station.get_number() in stations_offline_by_number:
 		      station_offline = stations_offline_by_number[station.get_number()]
 		      station_offline.set_end(station.get_timestamp())
-		      station_offline_db.update(station_offline)
+		      station_offline_db.update(station_offline, region)
 		  else:
 		    if station.get_number() not in stations_offline_by_number and station.get_timestamp().date().year > 2000:
 		      station_offline = blitzortung.data.StationOffline(0, station.get_number(), station.get_timestamp())
-		      station_offline_db.insert(station_offline)
+		      station_offline_db.insert(station_offline, region)
 	
 	station_db.commit()
 	station_offline_db.commit()
 
+def retrieve_station_info(regions):
+
+    # TODO add file based lock around retrieve call
+
+    for region in regions:
+        retrieve_station_info_for(region)
+
 if __name__ == "__main__":
-  retrieve_strokes()
-  retrieve_station_info()
+  regions = [1, 2, 3]
+  retrieve_strokes(regions)
+  retrieve_station_info(regions)
