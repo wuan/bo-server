@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf8 -*-
 
 import sys
 import os
@@ -7,6 +8,9 @@ import datetime
 import pytz
 
 import blitzortung
+
+def timestamp_is_newer_than(timestamp, starttime):
+  return timestamp > starttime and timestamp - starttime != datetime.timedelta()
 
 def retrieve_strokes_for(region):
 
@@ -28,7 +32,7 @@ def retrieve_strokes_for(region):
 		stroke = stroke_builder.build()
 
 		if starttime == None or \
-		   (stroke.get_timestamp() > starttime and stroke.get_timestamp() - starttime != datetime.timedelta()):
+		   timestamp_is_newer_than(stroke.get_timestamp(), starttime):
 		    strokedb.insert(stroke, region)
 
 	strokedb.commit()
@@ -75,12 +79,12 @@ def retrieve_station_info_for(region):
 		station_builder.from_string(line)
                 station = station_builder.build()
 
-		if station.get_number() > 0:
+		if station.is_valid():
 		  if station.get_number() not in stations_by_number or \
 		     station.get_number() in stations_by_number and \
 		     station.get_short_name() == stations_by_number[station.get_number()].get_short_name() and \
 		     station != stations_by_number[station.get_number()] and \
-		     station.get_timestamp() != stations_by_number[station.get_number()].get_timestamp():
+		     timestamp_is_newer_than(station.get_timestamp(), stations_by_number[station.get_number()].get_timestamp()):
 		    station_db.insert(station, region)
 
 		  if station.get_timestamp() >= offline_limit_time:
