@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import division
+
 from twisted.internet import epollreactor
 epollreactor.install()
 
@@ -117,10 +119,13 @@ class Cache(object):
     def __init__(self, result_creator, ttl_seconds=30):
 	self.result_creator = result_creator
 	self.ttl_seconds = ttl_seconds
+	self.total_count = 0
+	self.hit_count = 0
 
         self.cache = {}
 
     def get(self, **kwargs):
+	self.total_count += 1
 
         param = "_".join([str(value) for value in kwargs.values()])
 	if not param:
@@ -131,6 +136,7 @@ class Cache(object):
 	if param in self.cache:
 	    entry = self.cache[param]
 	    if now < entry.expires:
+	        self.hit_count += 1
 		return entry.payload
 	else:
 	    entry = None
@@ -146,6 +152,9 @@ class Cache(object):
 	  self.cache[param] = entry
 	
 	return entry.payload
+
+    def get_ratio(self):
+        return self.hit_count / self.total_count
 
 raster = {}
 
@@ -289,7 +298,7 @@ class Blitzortung(jsonrpc.JSONRPC):
 
     query_time = time.time()
 
-    print 'get_strokes_raster(%d, %d, %d, %d): #%d (%.2fs)' %(minute_length, raster_baselength, minute_offset, region, len(response['r']), query_time - reference_time)
+    print 'get_strokes_raster(%d, %d, %d, %d): #%d (%.2fs, %.1f%%)' %(minute_length, raster_baselength, minute_offset, region, len(response['r']), query_time - reference_time, self.strokes_raster_cache.get_ratio() * 100)
 
     return response
 
