@@ -10,7 +10,9 @@ import pytz
 import blitzortung
 
 def timestamp_is_newer_than(timestamp, starttime):
-  return timestamp > starttime and timestamp - starttime != datetime.timedelta()
+  if not starttime:
+    return True
+  return timestamp and timestamp > starttime and timestamp - starttime != datetime.timedelta()
 
 def retrieve_strokes_for(region):
 
