@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import division
+
 from twisted.internet import epollreactor
 epollreactor.install()
 
@@ -106,6 +108,53 @@ class RasterData(object):
 
     return self.raster_data[baselength]
 
+class CacheEntry(object):
+
+    def __init__(self, expires, payload):
+        self.expires = expires
+	self.payload = payload
+
+class Cache(object):
+
+    def __init__(self, result_creator, ttl_seconds=30):
+	self.result_creator = result_creator
+	self.ttl_seconds = ttl_seconds
+	self.total_count = 0
+	self.hit_count = 0
+
+        self.cache = {}
+
+    def get(self, **kwargs):
+	self.total_count += 1
+
+        param = "_".join([str(value) for value in kwargs.values()])
+	if not param:
+	    param = "<default>"
+
+	now = datetime.datetime.utcnow()
+
+	if param in self.cache:
+	    entry = self.cache[param]
+	    if now < entry.expires:
+	        self.hit_count += 1
+		return entry.payload
+	else:
+	    entry = None
+
+	expires = now + datetime.timedelta(seconds=self.ttl_seconds)
+	payload = self.result_creator(**kwargs)
+
+	if entry:
+	  entry.expires = expires
+	  entry.payload = payload
+	else:
+	  entry = CacheEntry(expires, payload)
+	  self.cache[param] = entry
+	
+	return entry.payload
+
+    def get_ratio(self):
+        return self.hit_count / self.total_count
 
 raster = {}
 
@@ -118,6 +167,12 @@ class Blitzortung(jsonrpc.JSONRPC):
   An example object to be published.
   """
 
+  def __init__(self):
+    self.check_count = 0
+    self.cache_count = 0
+    self.cache_cache = Cache(self.create_cache_element)
+    self.strokes_raster_cache = Cache(self.get_strokes_raster, 20)
+
   addSlash = True
 
   def __force_min(self, number, min_number):
@@ -128,6 +183,18 @@ class Blitzortung(jsonrpc.JSONRPC):
 
   def __force_range(self, number, min_number, max_number):
     return self.__force_min(self.__force_max(number, max_number), min_number)
+
+  def jsonrpc_check(self):
+    self.check_count += 1
+    return {'count': self.check_count}
+
+  def create_cache_element(self, param):
+    time.sleep(2 + param)
+    self.cache_count += 1
+    return self.cache_count
+
+  def jsonrpc_cached(self, param):
+    return self.cache_cache.get(param=param)
 
   def jsonrpc_get_strokes(self, minute_length, min_id=None):
     minute_length = self.__force_range(minute_length, 0, 24*60)
@@ -187,10 +254,7 @@ class Blitzortung(jsonrpc.JSONRPC):
   def jsonrpc_get_strokes_around(self, longitude, latitude, minute_length, min_id=None):
     pass
 
-  def jsonrpc_get_strokes_raster(self, minute_length, raster_baselength=10000, minute_offset=0, region=1):
-    raster_baselength = self.__force_min(raster_baselength, 5000)
-    minute_length = self.__force_range(minute_length, 0, 24 * 60)
-    minute_offset = self.__force_range(minute_offset, -24 * 60 + minute_length, 0)
+  def get_strokes_raster(self, minute_length, raster_baselength, minute_offset, region):
 
     strokedb = blitzortung.db.stroke()
 
@@ -201,19 +265,16 @@ class Blitzortung(jsonrpc.JSONRPC):
     starttime = endtime - datetime.timedelta(minutes=minute_length)
     time_interval = blitzortung.db.TimeInterval(starttime, endtime)
 
-    reference_time = time.time()
-
     raster_data = raster[region].get_for(raster_baselength)
 
     raster_strokes = strokedb.select_raster(raster_data, time_interval)
     histogram = strokedb.select_histogram(minute_length, minute_offset, region, 5)
 
-    query_time = time.time()
-
     endtime = endtime.replace(tzinfo=pytz.UTC)
     reduced_stroke_array = raster_strokes.to_reduced_array(endtime)
 
     response = {}
+
     response['r'] = reduced_stroke_array
     response['xd'] = raster_data.get_x_div()
     response['yd'] = raster_data.get_y_div()
@@ -224,7 +285,35 @@ class Blitzortung(jsonrpc.JSONRPC):
     response['t'] = endtime.strftime("%Y%m%dT%H:%M:%S")
     response['h'] = histogram
 
-    print 'get_strokes_raster(%d, %d, %d, %d): #%d (%.2fs)' %(minute_length, raster_baselength, minute_offset, region, len(reduced_stroke_array), query_time - reference_time)
+    return response
+
+  def jsonrpc_get_strokes_raster(self, minute_length, raster_baselength=10000, minute_offset=0, region=1):
+    raster_baselength = self.__force_min(raster_baselength, 5000)
+    minute_length = self.__force_range(minute_length, 0, 24 * 60)
+    minute_offset = self.__force_range(minute_offset, -24 * 60 + minute_length, 0)
+
+    reference_time = time.time()
+
+    response = self.strokes_raster_cache.get(minute_length=minute_length, raster_baselength=raster_baselength, minute_offset=minute_offset, region=region)
+
+    query_time = time.time()
+
+    print 'get_strokes_raster(%d, %d, %d, %d): #%d (%.2fs, %.1f%%)' %(minute_length, raster_baselength, minute_offset, region, len(response['r']), query_time - reference_time, self.strokes_raster_cache.get_ratio() * 100)
+
+    return response
+
+  def jsonrpc_get_strokes_raster_uncached(self, minute_length, raster_baselength=10000, minute_offset=0, region=1):
+    raster_baselength = self.__force_min(raster_baselength, 5000)
+    minute_length = self.__force_range(minute_length, 0, 24 * 60)
+    minute_offset = self.__force_range(minute_offset, -24 * 60 + minute_length, 0)
+
+    reference_time = time.time()
+
+    response = self.get_strokes_raster(minute_length, raster_baselength, minute_offset, region)
+
+    query_time = time.time()
+
+    print 'get_strokes_raster(%d, %d, %d, %d): #%d (%.2fs)' %(minute_length, raster_baselength, minute_offset, region, len(response['r']), query_time - reference_time)
 
     return response
 
