@@ -159,7 +159,7 @@ class Cache(object):
 raster = {}
 
 raster[1] = RasterData(-12, 35, 35, 65, UTM_EU)
-raster[2] = RasterData(140, 180, -50, -10, UTM_OC)
+raster[2] = RasterData(110, 180, -50, 0, UTM_OC)
 raster[3] = RasterData(-140, -50, 10, 60, UTM_USA)
 
 class Blitzortung(jsonrpc.JSONRPC):
