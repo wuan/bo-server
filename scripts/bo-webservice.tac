@@ -169,8 +169,6 @@ class Blitzortung(jsonrpc.JSONRPC):
 
   def __init__(self):
     self.check_count = 0
-    self.cache_count = 0
-    self.cache_cache = Cache(self.create_cache_element)
     self.strokes_raster_cache = Cache(self.get_strokes_raster, 20)
 
   addSlash = True
@@ -187,14 +185,6 @@ class Blitzortung(jsonrpc.JSONRPC):
   def jsonrpc_check(self):
     self.check_count += 1
     return {'count': self.check_count}
-
-  def create_cache_element(self, param):
-    time.sleep(2 + param)
-    self.cache_count += 1
-    return self.cache_count
-
-  def jsonrpc_cached(self, param):
-    return self.cache_cache.get(param=param)
 
   def jsonrpc_get_strokes(self, minute_length, min_id=None):
     minute_length = self.__force_range(minute_length, 0, 24*60)
@@ -259,7 +249,7 @@ class Blitzortung(jsonrpc.JSONRPC):
     strokedb = blitzortung.db.stroke()
 
     endtime = datetime.datetime.utcnow()
-    endtime = endtime.replace(microsecond = 0)
+    endtime = endtime.replace(tzinfo=pytz.UTC, microsecond=0)
     endtime += datetime.timedelta(minutes=minute_offset)
 
     starttime = endtime - datetime.timedelta(minutes=minute_length)
@@ -268,9 +258,7 @@ class Blitzortung(jsonrpc.JSONRPC):
     raster_data = raster[region].get_for(raster_baselength)
 
     raster_strokes = strokedb.select_raster(raster_data, time_interval)
-    histogram = strokedb.select_histogram(minute_length, minute_offset, region, 5)
 
-    endtime = endtime.replace(tzinfo=pytz.UTC)
     reduced_stroke_array = raster_strokes.to_reduced_array(endtime)
 
     response = {}
@@ -283,7 +271,7 @@ class Blitzortung(jsonrpc.JSONRPC):
     response['xc'] = raster_data.get_x_bin_count()
     response['yc'] = raster_data.get_y_bin_count()
     response['t'] = endtime.strftime("%Y%m%dT%H:%M:%S")
-    response['h'] = histogram
+    response['h'] = strokedb.select_histogram(minute_length, minute_offset, region, 5)
 
     return response
 
