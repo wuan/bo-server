@@ -191,10 +191,10 @@ class Blitzortung(jsonrpc.JSONRPC):
         self.check_count += 1
         return {'count': self.check_count}
 
-    def jsonrpc_get_strokes(self, minute_length, id_or_offset=None):
+    def jsonrpc_get_strokes(self, minute_length, id_or_offset=0):
         minute_length = self.__force_range(minute_length, 0, 24 * 60)
         minute_offset = self.__force_range(id_or_offset, -24 * 60 + minute_length,
-                                           0) if id_or_offset and id_or_offset < 0 else 0
+                                           0) if id_or_offset < 0 else 0
 
         stroke_db = blitzortung.db.stroke()
 
@@ -206,7 +206,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         start_time = end_time - datetime.timedelta(minutes=minute_length)
         time_interval = blitzortung.db.TimeInterval(start_time, end_time)
 
-        if id_or_offset and id_or_offset > 0:
+        if id_or_offset > 0:
             id_interval = blitzortung.db.IdInterval(id_or_offset)
         else:
             id_interval = None
