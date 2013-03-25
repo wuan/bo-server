@@ -235,7 +235,8 @@ class Blitzortung(jsonrpc.JSONRPC):
             stroke_array.append(stroke_data)
             max_id = stroke.get_id()
 
-        response = {'s': stroke_array, 't': end_time.strftime("%Y%m%dT%H:%M:%S")}
+        response = {'s': stroke_array, 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
+                    'h': stroke_db.select_histogram(minute_length, minute_offset, None, 5)}
 
         if max_id:
             response['next'] = long(max_id + 1)
