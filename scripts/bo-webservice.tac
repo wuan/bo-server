@@ -236,7 +236,7 @@ class Blitzortung(jsonrpc.JSONRPC):
             max_id = stroke.get_id()
 
         response = {'s': stroke_array, 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
-                    'h': stroke_db.select_histogram(minute_length, minute_offset, None, 5)}
+                    'h': stroke_db.select_histogram(minute_length, minute_offset, 5)}
 
         if max_id:
             response['next'] = long(max_id + 1)
@@ -269,7 +269,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         response = {'r': reduced_stroke_array, 'xd': raster_data.get_x_div(), 'yd': raster_data.get_y_div(),
                     'x0': raster_data.get_x_min(), 'y1': raster_data.get_y_max(), 'xc': raster_data.get_x_bin_count(),
                     'yc': raster_data.get_y_bin_count(), 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
-                    'h': stroke_db.select_histogram(minute_length, minute_offset, region, 5)}
+                    'h': stroke_db.select_histogram(minute_length, minute_offset, 5, envelope=raster_data.get_env())}
 
         return response
 
