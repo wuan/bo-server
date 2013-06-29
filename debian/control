@@ -8,7 +8,7 @@ Homepage: http://launchpad.net/blitzortung-tracker
 
 Package: blitzortung-server
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, python-blitzortung (>=1.2)
 Conflicts:
 Replaces:
 Description: blitzortung.org server software

@@ -80,7 +80,7 @@ class TestRealm(object):
             raise KeyError('none of the requested interfaces is supported')
 
 
-class RasterData(object):
+class RasterDataFactory(object):
     def __init__(self, min_lon, max_lon, min_lat, max_lat, coord_sys):
         self.min_lon = min_lon
         self.max_lon = max_lon
@@ -114,57 +114,9 @@ class RasterData(object):
         return self.raster_data[baselength]
 
 
-class CacheEntry(object):
-    def __init__(self, expires, payload):
-        self.expires = expires
-        self.payload = payload
-
-
-class Cache(object):
-    def __init__(self, result_creator, ttl_seconds=30):
-        self.result_creator = result_creator
-        self.ttl_seconds = ttl_seconds
-        self.total_count = 0
-        self.hit_count = 0
-
-        self.cache = {}
-
-    def get(self, **kwargs):
-        self.total_count += 1
-
-        param = "_".join([str(value) for value in kwargs.values()])
-        if not param:
-            param = "<default>"
-
-        now = datetime.datetime.utcnow()
-
-        if param in self.cache:
-            entry = self.cache[param]
-            if now < entry.expires:
-                self.hit_count += 1
-                return entry.payload
-        else:
-            entry = None
-
-        expires = now + datetime.timedelta(seconds=self.ttl_seconds)
-        payload = self.result_creator(**kwargs)
-
-        if entry:
-            entry.expires = expires
-            entry.payload = payload
-        else:
-            entry = CacheEntry(expires, payload)
-            self.cache[param] = entry
-
-        return entry.payload
-
-    def get_ratio(self):
-        return self.hit_count / self.total_count
-
-
-raster = {1: RasterData(-12, 35, 35, 65, UTM_EU),
-          2: RasterData(110, 180, -50, 0, UTM_OC),
-          3: RasterData(-140, -50, 10, 60, UTM_USA)}
+raster = {1: RasterDataFactory(-12, 35, 35, 65, UTM_EU),
+          2: RasterDataFactory(110, 180, -50, 0, UTM_OC),
+          3: RasterDataFactory(-140, -50, 10, 60, UTM_USA)}
 
 
 class Blitzortung(jsonrpc.JSONRPC):
@@ -174,7 +126,7 @@ class Blitzortung(jsonrpc.JSONRPC):
 
     def __init__(self):
         self.check_count = 0
-        self.strokes_raster_cache = Cache(self.get_strokes_raster, 20)
+        self.strokes_raster_cache = blitzortung.cache.ObjectCache(ttl_seconds=20)
 
     addSlash = True
 
@@ -280,7 +232,7 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         reference_time = time.time()
 
-        response = self.strokes_raster_cache.get(minute_length=minute_length, raster_baselength=raster_base_length,
+        response = self.strokes_raster_cache.get(self.get_strokes_raster, minute_length=minute_length, raster_baselength=raster_base_length,
                                                  minute_offset=minute_offset, region=region)
 
         query_time = time.time()
