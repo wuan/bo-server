@@ -173,7 +173,6 @@ class Blitzortung(jsonrpc.JSONRPC):
         reference_time = time.time()
         strokes = stroke_db.select(time_interval, id_interval, area, order)
         query_time = time.time()
-        statsd_client.incr(PACKAGE_BASE + 'strokes')
         statsd_client.timing(PACKAGE_BASE + 'strokes.query', int((query_time - reference_time) * 1000))
 
         max_id = None
@@ -201,6 +200,10 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         print 'get_strokes(%d, %d): #%d (%.2fs)' % (
             minute_length, id_or_offset, len(strokes), query_time - reference_time)
+
+        full_time = time.time()
+        statsd_client.incr(PACKAGE_BASE + 'strokes')
+        statsd_client.timing(PACKAGE_BASE + 'strokes', int((full_time - reference_time) * 1000))
 
         return response
 
@@ -246,11 +249,12 @@ class Blitzortung(jsonrpc.JSONRPC):
         response = self.strokes_raster_cache.get(self.get_strokes_raster, minute_length=minute_length, raster_baselength=raster_base_length,
                                                  minute_offset=minute_offset, region=region)
 
-        query_time = time.time()
+        full_time = time.time()
         statsd_client.incr(PACKAGE_BASE + 'strokes_raster')
+        statsd_client.timing(PACKAGE_BASE + 'strokes_raster', int((full_time - reference_time) * 1000))
 
         print 'get_strokes_raster(%d, %d, %d, %d): #%d (%.2fs, %.1f%%)' % (
-            minute_length, raster_base_length, minute_offset, region, len(response['r']), query_time - reference_time,
+            minute_length, raster_base_length, minute_offset, region, len(response['r']), full_time - reference_time,
             self.strokes_raster_cache.get_ratio() * 100)
 
         return response
@@ -278,7 +282,6 @@ class Blitzortung(jsonrpc.JSONRPC):
         stations = stations_db.select()
         query_time = time.time()
         statsd_client.timing(PACKAGE_BASE + 'stations.query', int((query_time - reference_time) * 1000))
-        statsd_client.incr(PACKAGE_BASE + 'stations')
 
         station_array = []
         for station in stations:
@@ -294,7 +297,11 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         response = {'stations': station_array}
 
+        full_time = time.time()
+
         print 'get_stations(): #%d (%.2fs)' % (len(stations), query_time - reference_time)
+        statsd_client.incr(PACKAGE_BASE + 'stations')
+        statsd_client.timing(PACKAGE_BASE + 'stations', int((full_time - reference_time) * 1000))
 
         return response
 
