@@ -173,6 +173,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         reference_time = time.time()
         strokes = stroke_db.select(time_interval, id_interval, area, order)
         query_time = time.time()
+        statsd_client.incr(PACKAGE_BASE + 'strokes')
         statsd_client.timing(PACKAGE_BASE + 'strokes.query', int((query_time - reference_time) * 1000))
 
         max_id = None
@@ -277,6 +278,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         stations = stations_db.select()
         query_time = time.time()
         statsd_client.timing(PACKAGE_BASE + 'stations.query', int((query_time - reference_time) * 1000))
+        statsd_client.incr(PACKAGE_BASE + 'stations')
 
         station_array = []
         for station in stations:
