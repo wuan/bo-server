@@ -173,7 +173,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         reference_time = time.time()
         strokes = stroke_db.select(time_interval, id_interval, area, order)
         query_time = time.time()
-        statsd_client.timer(PACKAGE_BASE + 'strokes.query', int((query_time - reference_time) * 1000))
+        statsd_client.timing(PACKAGE_BASE + 'strokes.query', int((query_time - reference_time) * 1000))
 
         max_id = None
         stroke_array = []
@@ -231,7 +231,7 @@ class Blitzortung(jsonrpc.JSONRPC):
                     'h': stroke_db.select_histogram(minute_length, minute_offset, 5, envelope=raster_data)}
 
         query_time = time.time()
-        statsd_client.timer(PACKAGE_BASE + 'strokes_raster.query', int((query_time - reference_time) * 1000))
+        statsd_client.timing(PACKAGE_BASE + 'strokes_raster.query', int((query_time - reference_time) * 1000))
 
         return response
 
@@ -276,7 +276,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         reference_time = time.time()
         stations = stations_db.select()
         query_time = time.time()
-        statsd_client.timer(PACKAGE_BASE + 'stations.query', int((query_time - reference_time) * 1000))
+        statsd_client.timing(PACKAGE_BASE + 'stations.query', int((query_time - reference_time) * 1000))
 
         station_array = []
         for station in stations:
