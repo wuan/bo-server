@@ -37,8 +37,6 @@ def retrieve_strokes_for(region):
 
         stroke_db.commit()
 
-        stroke_db.close()
-
 
 def retrieve_strokes(regions):
     # TODO add file based lock around retrieve call
@@ -102,9 +100,7 @@ def retrieve_station_info_for(region):
                             station_offline_db.insert(station_offline, region)
 
         station_db.commit()
-        station_db.close()
         station_offline_db.commit()
-        station_offline_db.close()
 
 
 def retrieve_station_info(regions):
