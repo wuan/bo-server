@@ -96,13 +96,13 @@ class RasterDataFactory(object):
     def fix_max(self, minimum, maximum, delta):
         return minimum + math.floor((maximum - minimum) / delta) * delta
 
-    def get_for(self, baselength):
-        if baselength not in self.raster_data:
+    def get_for(self, base_length):
+        if base_length not in self.raster_data:
             ref_lon = (self.min_lon + self.max_lon) / 2.0
             ref_lat = (self.min_lat + self.max_lat) / 2.0
 
             utm_x, utm_y = pyproj.transform(WGS84, self.coord_sys, ref_lon, ref_lat)
-            lon_d, lat_d = pyproj.transform(self.coord_sys, WGS84, utm_x + baselength, utm_y + baselength)
+            lon_d, lat_d = pyproj.transform(self.coord_sys, WGS84, utm_x + base_length, utm_y + base_length)
 
             delta_lon = lon_d - ref_lon
             delta_lat = lat_d - ref_lat
@@ -110,11 +110,11 @@ class RasterDataFactory(object):
             max_lon = self.fix_max(self.min_lon, self.max_lon, delta_lon)
             max_lat = self.fix_max(self.min_lat, self.max_lat, delta_lat)
 
-            self.raster_data[baselength] = blitzortung.geom.Raster(self.min_lon, max_lon, self.min_lat, max_lat,
+            self.raster_data[base_length] = blitzortung.geom.Raster(self.min_lon, max_lon, self.min_lat, max_lat,
                                                                    delta_lon, delta_lat,
                                                                    blitzortung.geom.Geometry.DefaultSrid)
 
-        return self.raster_data[baselength]
+        return self.raster_data[base_length]
 
 
 raster = {1: RasterDataFactory(-12, 35, 35, 65, UTM_EU),
@@ -174,28 +174,18 @@ class Blitzortung(jsonrpc.JSONRPC):
         query_time = time.time()
         statsd_client.timing('strokes.query', int((query_time - reference_time) * 1000))
 
-        max_id = None
-        stroke_array = []
-        for stroke in strokes:
-            stroke_data = []
-
-            timestamp = stroke.get_timestamp()
-            stroke_data.append((end_time - timestamp).seconds)
-            stroke_data.append(stroke.get_x())
-            stroke_data.append(stroke.get_y())
-            stroke_data.append(stroke.get_lateral_error())
-            stroke_data.append(stroke.get_amplitude())
-            stroke_data.append(stroke.get_station_count())
-            stroke_data.append(stroke.get_type())
-
-            stroke_array.append(stroke_data)
-            max_id = stroke.get_id()
+        reference_time = time.time()
+        stroke_array = map(lambda stroke: [(end_time - stroke.get_timestamp()).seconds, stroke.get_x(), stroke.get_y(),
+                                           stroke.get_lateral_error(), stroke.get_amplitude(),
+                                           stroke.get_station_count(), stroke.get_type()], strokes)
+        reduce_time = time.time()
+        statsd_client.timing('strokes.reduce', int((reduce_time - reference_time) * 1000))
 
         response = {'s': stroke_array, 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
                     'h': stroke_db.select_histogram(minute_length, minute_offset, 5)}
 
-        if max_id:
-            response['next'] = long(max_id + 1)
+        if strokes:
+            response['next'] = long(strokes[-1].get_id() + 1)
 
         print 'get_strokes(%d, %d): #%d (%.2fs)' % (
             minute_length, id_or_offset, len(strokes), query_time - reference_time)
@@ -222,19 +212,23 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         raster_data = raster[region].get_for(raster_baselength)
 
+        reference_time = time.time()
         raster_strokes = stroke_db.select_raster(raster_data, time_interval)
-
-        reduced_stroke_array = raster_strokes.to_reduced_array(end_time)
+        query_time = time.time()
+        statsd_client.timing('strokes_raster.query', int((query_time - reference_time) * 1000))
 
         reference_time = time.time()
+        reduced_stroke_array = raster_strokes.to_reduced_array(end_time)
+        reduction_time = time.time()
+        statsd_client.timing('strokes_raster.reduce', int((reduction_time - reference_time) * 1000))
 
+        reference_time = time.time()
         response = {'r': reduced_stroke_array, 'xd': raster_data.get_x_div(), 'yd': raster_data.get_y_div(),
                     'x0': raster_data.get_x_min(), 'y1': raster_data.get_y_max(), 'xc': raster_data.get_x_bin_count(),
                     'yc': raster_data.get_y_bin_count(), 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
                     'h': stroke_db.select_histogram(minute_length, minute_offset, 5, envelope=raster_data)}
-
-        query_time = time.time()
-        statsd_client.timing('strokes_raster.query', int((query_time - reference_time) * 1000))
+        pack_response_time = time.time()
+        statsd_client.timing('strokes_raster.pack_response', int((pack_response_time - reference_time) * 1000))
 
         return response
 
@@ -245,15 +239,19 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         reference_time = time.time()
 
-        response = self.strokes_raster_cache.get(self.get_strokes_raster, minute_length=minute_length, raster_baselength=raster_base_length,
+        response = self.strokes_raster_cache.get(self.get_strokes_raster, minute_length=minute_length,
+                                                 raster_baselength=raster_base_length,
                                                  minute_offset=minute_offset, region=region)
 
         full_time = time.time()
+        data_size = len(response['r'])
+
         statsd_client.incr('strokes_raster')
         statsd_client.timing('strokes_raster', int((full_time - reference_time) * 1000))
+        statsd_client.gauge('strokes_raster.size', data_size)
 
         print 'get_strokes_raster(%d, %d, %d, %d): #%d (%.2fs, %.1f%%)' % (
-            minute_length, raster_base_length, minute_offset, region, len(response['r']), full_time - reference_time,
+            minute_length, raster_base_length, minute_offset, region, data_size, full_time - reference_time,
             self.strokes_raster_cache.get_ratio() * 100)
 
         return response
