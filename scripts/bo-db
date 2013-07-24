@@ -14,50 +14,54 @@ import shapely.wkt
 
 import blitzortung
 
-DATE_FORMAT='%Y%m%d'
-TIME_FORMAT='%H%M'
-SECONDS_FORMAT='%S'
+DATE_FORMAT = '%Y%m%d'
+TIME_FORMAT = '%H%M'
+SECONDS_FORMAT = '%S'
 
-def parse_time(date_string, time_string, description, is_endtime=False):
-  try:
-    has_seconds = len(time_string) > 4
-    tmpdate = datetime.datetime.strptime(date_string, DATE_FORMAT).date()
-    tmptime = datetime.datetime.strptime(time_string, TIME_FORMAT + ( SECONDS_FORMAT if has_seconds else '')).time()
-    parsed_time = tz.localize(datetime.datetime.combine(tmpdate, tmptime), is_dst=True)
-    if is_endtime:
-      parsed_time += (datetime.timedelta(seconds=1) if has_seconds else datetime.timedelta(minutes=1))
-    return parsed_time
-  except:
-    print "parse error in %s" % description
-    sys.exit(5)
+
+def parse_time(date_string, time_string, description, is_end_time=False):
+    try:
+        has_seconds = len(time_string) > 4
+        tmp_date = datetime.datetime.strptime(date_string, DATE_FORMAT).date()
+        tmp_time = datetime.datetime.strptime(time_string,
+                                              TIME_FORMAT + (SECONDS_FORMAT if has_seconds else '')).time()
+        parsed_time = tz.localize(datetime.datetime.combine(tmp_date, tmp_time), is_dst=True)
+        if is_end_time:
+            parsed_time += (datetime.timedelta(seconds=1) if has_seconds else datetime.timedelta(minutes=1))
+        return parsed_time
+    except:
+        print "parse error in %s" % description
+        sys.exit(5)
+
 
 def prepare_raster_if_applicable(options, area):
-  if options.raster != None or options.xraster != None or options.yraster != None:
+    if options.raster is not None or options.xraster is not None or options.yraster is not None:
 
-    if options.raster != None:
-      rasterx = options.raster
-      rastery = options.raster
+        if options.raster is not None:
+            raster_x = options.raster
+            raster_y = options.raster
 
-    if options.xraster != None:
-      rasterx = options.xraster
-      if options.yraster == None and options.raster == None:
-	rastery = rasterx
+        if options.xraster is not None:
+            raster_x = options.xraster
+            if options.yraster is None and options.raster is None:
+                raster_y = raster_x
 
-    if options.yraster != None:
-      rastery = options.yraster
-      if options.xraster == None and options.raster == None:
-	rasterx = rastery
+        if options.yraster is not None:
+            raster_y = options.yraster
+            if options.xraster is None and options.raster is None:
+                raster_x = raster_y
 
-    if options.area == None:
-      print "raster options requires declaration of envelope area"
-      sys.exit(1)
-    env = area.envelope.bounds
-    return blitzortung.geom.Raster(env[0], env[2], env[1], env[3], rasterx, rastery, options.srid)
+        if options.area is None:
+            print "raster options requires declaration of envelope area"
+            sys.exit(1)
+        env = area.envelope.bounds
+        return blitzortung.geom.Raster(env[0], env[2], env[1], env[3], raster_x, raster_y, options.srid)
+
 
 tz = pytz.timezone('UTC')
-endtime = datetime.datetime.utcnow().replace(tzinfo=tz)
-starttime = endtime - datetime.timedelta(hours=1)
-endtime -= datetime.timedelta(minutes=1)
+end_time = datetime.datetime.utcnow().replace(tzinfo=tz)
+start_time = end_time - datetime.timedelta(hours=1)
+end_time -= datetime.timedelta(minutes=1)
 
 parser = OptionParser()
 
@@ -80,69 +84,68 @@ parser.add_option("--tz", dest="tz", default=str(tz),
                   help="used timezone", type="string")
 
 parser.add_option("--useenv", dest="useenv", default=False, action="store_true",
-                        help="use envelope of given area for query")
+                  help="use envelope of given area for query")
 
-parser.add_option("--srid", dest="srid", default=blitzortung.geom.Geometry.DefaultSrid, 
+parser.add_option("--srid", dest="srid", default=blitzortung.geom.Geometry.DefaultSrid,
                   help="srid for query area and results", type="int")
 
-parser.add_option("--precision", dest="precision", default=4, 
+parser.add_option("--precision", dest="precision", default=4,
                   help="precision of coordinates", type="int")
 
-parser.add_option("--raster", dest="raster", 
+parser.add_option("--raster", dest="raster",
                   help="raster width", type="float")
 
-parser.add_option("--x-raster", dest="xraster", 
+parser.add_option("--x-raster", dest="xraster",
                   help="raster x width", type="float")
 
-parser.add_option("--y-raster", dest="yraster", 
+parser.add_option("--y-raster", dest="yraster",
                   help="raster y width", type="float")
 
 parser.add_option("--map", dest="map", action="store_true",
                   help="show ascii map instead of numerical raster")
 
-
 (options, args) = parser.parse_args()
 
 try:
-  tz = pytz.timezone(options.tz)
+    tz = pytz.timezone(options.tz)
 except:
-  print 'parse error in timezone "' + options.tz + '"'
-  sys.exit(1)
+    print 'parse error in timezone "' + options.tz + '"'
+    sys.exit(1)
 
-starttime = starttime.astimezone(tz)
-endtime = endtime.astimezone(tz)
+start_time = start_time.astimezone(tz)
+end_time = end_time.astimezone(tz)
 
 if options.startdate == 'default':
-  options.startdate = starttime.strftime(DATE_FORMAT)
+    options.startdate = start_time.strftime(DATE_FORMAT)
 if options.starttime == 'default':
-  options.starttime = starttime.strftime(TIME_FORMAT)
+    options.starttime = start_time.strftime(TIME_FORMAT)
 if options.enddate == 'default':
-  options.enddate = endtime.strftime(DATE_FORMAT)
+    options.enddate = end_time.strftime(DATE_FORMAT)
 if options.endtime == 'default':
-  options.endtime = endtime.strftime(TIME_FORMAT)
-  
-starttime = parse_time(options.startdate, options.starttime, "starttime")
-endtime = parse_time(options.enddate, options.endtime, "endtime", is_endtime=True)
- 
+    options.endtime = end_time.strftime(TIME_FORMAT)
+
+start_time = parse_time(options.startdate, options.starttime, "starttime")
+end_time = parse_time(options.enddate, options.endtime, "endtime", is_end_time=True)
+
 area = None
 if options.area:
-  try:
-    area = shapely.wkt.loads(options.area)
-  except:
-    print 'parse error in area "' + options.area + '"'
-  
-  if options.useenv:
-    area = area.envelope
+    try:
+        area = shapely.wkt.loads(options.area)
+    except:
+        print 'parse error in area "' + options.area + '"'
+
+    if options.useenv:
+        area = area.envelope
 
 # open stroke database
-strokedb = blitzortung.db.stroke()
+stroke_db = blitzortung.db.stroke()
 
 # set data parameters
-strokedb.set_srid(options.srid)
-strokedb.set_timezone(tz)
+stroke_db.set_srid(options.srid)
+stroke_db.set_timezone(tz)
 
 # set time range 
-timeRange = blitzortung.db.TimeInterval(starttime, endtime)
+time_range = blitzortung.db.TimeInterval(start_time, end_time)
 
 # set query parameters
 limit = blitzortung.db.Limit(5)
@@ -154,29 +157,29 @@ raster = prepare_raster_if_applicable(options, area)
 timer = blitzortung.util.Timer()
 
 if raster:
-  raster_result = strokedb.select_raster(raster, timeRange)
+    raster_result = stroke_db.select_raster(raster, time_range)
 
-  selecttime = timer.lap()
+    select_time = timer.lap()
 
-  if options.map:
-    print raster_result.to_map()
-  else:
-    print raster_result.to_arcgrid()
+    if options.map:
+        print raster_result.to_map()
+    else:
+        print raster_result.to_arcgrid()
 
-  sys.stderr.write('received raster data in %.3f seconds\n' %(selecttime))
+    sys.stderr.write('received raster data in %.3f seconds\n' % (select_time))
 
 else:
-  strokes = strokedb.select(timeRange, area, order)
+    strokes = stroke_db.select(time_range, area, order)
 
-  selecttime = timer.lap()
+    select_time = timer.lap()
 
-  precisionfactor = math.pow(10.0, options.precision)
+    precision_factor = math.pow(10.0, options.precision)
 
-  for stroke in strokes:
-    location_x = round(stroke.get_x() * precisionfactor) / precisionfactor
-    location_y = round(stroke.get_y() * precisionfactor) / precisionfactor
-    print str(stroke)
+    for stroke in strokes:
+        location_x = round(stroke.get_x() * precision_factor) / precision_factor
+        location_y = round(stroke.get_y() * precision_factor) / precision_factor
+        print str(stroke)
 
-  sys.stderr.write('received %d strokes in %.3f seconds\n' %(len(strokes), selecttime))
+    sys.stderr.write('received %d strokes in %.3f seconds\n' % (len(strokes), select_time))
 
 

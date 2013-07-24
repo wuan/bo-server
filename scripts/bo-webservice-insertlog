@@ -6,8 +6,10 @@ import glob
 import socket
 import logging
 import GeoIP
+from optparse import OptionParser
 
-import datetime, pytz
+import datetime
+import pytz
 
 import operator
 
@@ -15,7 +17,7 @@ import blitzortung
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler(sys.stdout))
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 def is_valid_ip_address(ip_address_string):
@@ -27,6 +29,15 @@ def is_valid_ip_address(ip_address_string):
         pass
     return False
 
+
+parser = OptionParser()
+
+parser.add_option("--debug", dest="debug", default=False, action="store_true", help="enable debug output")
+
+(options, args) = parser.parse_args()
+
+if options.debug:
+    logger.setLevel(logging.DEBUG)
 
 geoip = GeoIP.open('/etc/alternatives/GeoIPCity.dat', GeoIP.GEOIP_STANDARD)
 
