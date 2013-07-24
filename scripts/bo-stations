@@ -2,15 +2,20 @@
 
 import blitzortung
 
-def get_stations():
-  station_db = blitzortung.db.station()
 
-  return station_db.select()
+def get_stations():
+    station_db = blitzortung.db.station()
+
+    return station_db.select()
+
 
 def print_stations(stations):
-  for station in stations:
-    print "%d %s(%s) %s %s %s" % (station.get_number(),station.get_short_name(), station.get_name(), station.get_location_name(), station.get_country(), station.get_timestamp())
+    for station in stations:
+        print "%d %s(%s) %s %s %s" % (
+            station.get_number(), station.get_short_name(), station.get_name(), station.get_location_name(),
+            station.get_country(), station.get_timestamp())
+
 
 if __name__ == "__main__":
-  stations = get_stations()
-  print_stations(stations)
+    stations = get_stations()
+    print_stations(stations)

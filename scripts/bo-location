@@ -3,32 +3,33 @@
 
 import sys, os, zipfile
 import urllib
-import datetime
 import math
 
-import pytz
-
-from optparse import OptionParser, SUPPRESS_HELP
+from optparse import OptionParser
 
 import shapely.geometry
 import shapely.wkt
 
 import blitzortung
 
-def getCountry(id):
-  filename = id.upper()+'.zip'
-  if not os.path.exists(filename):
-    print "downloading",filename
-    url = 'http://download.geonames.org/export/dump/' + filename
-    (filename, object) = urllib.urlretrieve(url, filename)
-  return filename
 
-countries = ['CH', 'DE', 'FR', 'SE', 'ES', 'NO', 'TR', 'BA', 'PL', 'IT', 'FI', 'AT', 'GB', 'RS', 'RO', 'PT', 'HU', 'IE', 'HR', 'GR', 'BE', 'CZ', 'NL', 'DK', 'ME',  'BY', 'BG', 'LT', 'LV', 'AL', 'SK', 'EE', 'SJ', 'MK', 'SI', 'AD', 'LU', 'GG', 'JE', 'IM', 'LI', 'MC', 'SM', 'VA']
+def getCountry(country_id):
+    filename = country_id.upper() + '.zip'
+    if not os.path.exists(filename):
+        print "downloading", filename
+        url = 'http://download.geonames.org/export/dump/' + filename
+        (filename, _) = urllib.urlretrieve(url, filename)
+    return filename
+
+
+country_ids = ['CH', 'DE', 'FR', 'SE', 'ES', 'NO', 'TR', 'BA', 'PL', 'IT', 'FI', 'AT', 'GB', 'RS', 'RO', 'PT', 'HU',
+               'IE', 'HR', 'GR', 'BE', 'CZ', 'NL', 'DK', 'ME', 'BY', 'BG', 'LT', 'LV', 'AL', 'SK', 'EE', 'SJ', 'MK',
+               'SI', 'AD', 'LU', 'GG', 'JE', 'IM', 'LI', 'MC', 'SM', 'VA']
 
 parser = OptionParser()
 
 parser.add_option("--import", dest="doimport", default=False, action="store_true",
-                        help="import geonames data to local database")
+                  help="import geonames data to local database")
 
 parser.add_option("-x", "--x-pos", dest="xpos", default=11.0,
                   help="coordinate of location", type="float")
@@ -36,55 +37,55 @@ parser.add_option("-x", "--x-pos", dest="xpos", default=11.0,
 parser.add_option("-y", "--y-pos", dest="ypos", default=48.0,
                   help="coordinate of location", type="float")
 
-parser.add_option("-s","--srid", dest="srid", default=blitzortung.geom.Geometry.DefaultSrid, 
+parser.add_option("-s", "--srid", dest="srid", default=blitzortung.geom.Geometry.DefaultSrid,
                   help="srid for query area and results", type="int")
 
 (options, args) = parser.parse_args()
 
-' open access to location database '
+# open access to location database
 
-locationdb = blitzortung.db.location()
+location_db = blitzortung.db.location()
 
 if options.doimport:
-  locationdb.delete_all() 
-   
-  for country in countries: 
-    filename = getCountry(country) 
+    location_db.delete_all()
 
-    print filename 
+    for country_id in country_ids:
+        filename = getCountry(country_id)
 
-    zip = zipfile.ZipFile(filename) 
+        print filename
 
-    data = zip.open(country.upper()+'.txt') 
+        zip_file = zipfile.ZipFile(filename)
 
-    for line in data.readlines(): 
-      locationdb.insert(line) 
+        data = zip_file.open(country_id.upper() + '.txt')
 
-    locationdb.commit() 
+        for line in data.readlines():
+            location_db.insert(line)
+
+        location_db.commit()
 
 else:
-  ' set database defaults '
-  locationdb.set_srid(options.srid)
+    # set database defaults
+    location_db.set_srid(options.srid)
 
-  ' set other query parameters '
-  limit = blitzortung.db.Limit(5)
-  order = blitzortung.db.Order('id')
+    # set other query parameters
+    limit = blitzortung.db.Limit(5)
+    order = blitzortung.db.Order('id')
 
-  ' start timer for database select '
-  timer = blitzortung.util.Timer()
+    # start timer for database select
+    timer = blitzortung.util.Timer()
 
-  center = blitzortung.db.Center(shapely.geometry.Point(float(options.xpos), float(options.ypos)))
+    center = blitzortung.db.Center(shapely.geometry.Point(float(options.xpos), float(options.ypos)))
 
-  ' query location database '
-  locations = locationdb.select(center)
+    # query location database
+    locations = location_db.select(center)
 
-  ' take time of database select '
-  selecttime = timer.lap()
+    # take time of database select
+    select_time = timer.lap()
 
-  ' display resulting locations '
-  for location in locations:
-    print u"%s %.1fkm %.1f°" %(location['name'], location['distance']/1000, location['azimuth']/math.pi*180)
+    # display resulting locations
+    for location in locations:
+        print u"%s %.1fkm %.1f°" % (location['name'], location['distance'] / 1000, location['azimuth'] / math.pi * 180)
 
-  ' write out statistical information '
+    # write out statistical information
 
-  sys.stderr.write('-- received %d locations in %.3f seconds\n' %(len(locations), selecttime))
+    sys.stderr.write('-- received %d locations in %.3f seconds\n' % (len(locations), select_time))

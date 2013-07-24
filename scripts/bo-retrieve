@@ -7,10 +7,10 @@ import pytz
 import blitzortung
 
 
-def timestamp_is_newer_than(timestamp, starttime):
-    if not starttime:
+def timestamp_is_newer_than(timestamp, start_time):
+    if not start_time:
         return True
-    return timestamp and timestamp > starttime and timestamp - starttime != datetime.timedelta()
+    return timestamp and timestamp > start_time and timestamp - start_time != datetime.timedelta()
 
 
 def retrieve_strokes_for(region):
@@ -20,14 +20,13 @@ def retrieve_strokes_for(region):
     stroke_data = stroke_source.read()
 
     if stroke_data:
-
         stroke_db = blitzortung.db.stroke()
 
         start_time = stroke_db.get_latest_time(region)
 
+        stroke_builder = blitzortung.builder.Stroke()
         for line in stroke_data.split('\n'):
             if line.strip() != "":
-                stroke_builder = blitzortung.builder.Stroke()
                 stroke_builder.from_string(line)
                 stroke = stroke_builder.build()
 
@@ -72,20 +71,20 @@ def retrieve_station_info_for(region):
         offline_limit_time = now - datetime.timedelta(minutes=30)
         offline_limit_time = offline_limit_time.replace(tzinfo=pytz.UTC)
 
+        station_builder = blitzortung.builder.Station()
         for line in station_data.split('\n'):
             if line.strip() != "":
-                station_builder = blitzortung.builder.Station()
                 station_builder.from_string(line)
                 station = station_builder.build()
 
                 if station.is_valid():
                     if station.get_number() not in stations_by_number or \
-                                                            station.get_number() in stations_by_number and \
-                                                            station.get_short_name() == stations_by_number[
-                                                        station.get_number()].get_short_name() and \
-                                                    station != stations_by_number[station.get_number()] and \
-                                    timestamp_is_newer_than(station.get_timestamp(),
-                                                            stations_by_number[station.get_number()].get_timestamp()):
+                            station.get_number() in stations_by_number and \
+                            station.get_short_name() == stations_by_number[
+                            station.get_number()].get_short_name() and \
+                            station != stations_by_number[station.get_number()] and \
+                            timestamp_is_newer_than(station.get_timestamp(),
+                                stations_by_number[station.get_number()].get_timestamp()):
                         station_db.insert(station, region)
 
                     if station.get_timestamp() >= offline_limit_time:
