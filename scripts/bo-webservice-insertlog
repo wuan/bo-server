@@ -12,75 +12,79 @@ import operator
 
 import blitzortung
 
+
 def is_valid_ip_address(ip_address_string):
-  try:
-    addr_bytes = socket.inet_aton(ip_address_string)
-    if ip_address_string.count('.') == 3:
-      return True
-  except socket.error:
-    pass
-  return False
+    try:
+        addr_bytes = socket.inet_aton(ip_address_string)
+        if ip_address_string.count('.') == 3:
+            return True
+    except socket.error:
+        pass
+    return False
+
 
 geoip = GeoIP.open('/etc/alternatives/GeoIPCity.dat', GeoIP.GEOIP_STANDARD)
 
-servicelog = blitzortung.db.servicelog()
+service_log = blitzortung.db.servicelog()
 
-latest_time = servicelog.get_latest_time()
+latest_time = service_log.get_latest_time()
 
 log_file_names = {}
 base_path = '/var/log/blitzortung/webservice.log'
 for log_file_name in glob.glob(base_path + '*'):
-  if log_file_name != base_path:
-    parts = [int(part) for part in log_file_name[len(base_path)+1:].split('_')]
-    date = datetime.date(parts[0], parts[1], parts[2])
-  else:
-    date = datetime.datetime.utcnow().date()
-  log_file_names[date] = log_file_name
+    if log_file_name != base_path:
+        parts = [int(part) for part in log_file_name[len(base_path) + 1:].split('_')]
+        date = datetime.date(parts[0], parts[1], parts[2])
+    else:
+        date = datetime.datetime.utcnow().date()
+    log_file_names[date] = log_file_name
 
 log_file_dates = log_file_names.keys()
 
 log_file_dates.sort()
 
 for log_file_date in log_file_dates:
-  if latest_time is None or latest_time.date() <= log_file_date:
-    log_file_name = log_file_names[log_file_date]
+    if latest_time is None or latest_time.date() <= log_file_date:
+        log_file_name = log_file_names[log_file_date]
 
-    with open(log_file_name, 'r') as log_file:
+        with open(log_file_name, 'r') as log_file:
 
-      for line in log_file:
-        try:
-	  fields = shlex.split(line)
-        except ValueError:
-	  continue
+            for line in log_file:
+                try:
+                    fields = shlex.split(line)
+                except ValueError:
+                    continue
 
-	if len(fields) >= 4:
-	  remote_address = fields[3]
-	  if is_valid_ip_address(remote_address):
-	    date = fields[0]
-	    time = fields[1]
-	    timestamp = datetime.datetime.strptime(date + ' ' + time[:-5], '%Y-%m-%d %H:%M:%S').replace(tzinfo=pytz.UTC)
-	    if latest_time is None or timestamp > latest_time:
-	      user_agent = fields[12]
-	      version = None
-	      version_prefix='bo-android-'
-	      if user_agent.startswith(version_prefix):
-		version = int(user_agent[len(version_prefix):])
+                if len(fields) >= 4:
+                    remote_address = fields[3]
+                    if is_valid_ip_address(remote_address):
+                        date = fields[0]
+                        time = fields[1]
+                        timestamp = datetime.datetime.strptime(date + ' ' + time[:-5], '%Y-%m-%d %H:%M:%S').replace(
+                            tzinfo=pytz.UTC)
+                        if latest_time is None or timestamp > latest_time:
+                            user_agent = fields[12]
+                            version = None
+                            version_prefix = 'bo-android-'
+                            if user_agent.startswith(version_prefix):
+                                version = int(user_agent[len(version_prefix):])
 
-	      geo_info = geoip.record_by_addr(remote_address)
-	      if geo_info:
-		city_name = geo_info['city']
-		if city_name:
-		  city_name = city_name.decode('latin_1')
-		longitude = "%.4f" % geo_info['longitude']
-		latitude = "%.4f" % geo_info['latitude']
+                            geo_info = geoip.record_by_addr(remote_address)
+                            if geo_info:
+                                city_name = geo_info['city']
+                                if city_name:
+                                    city_name = city_name.decode('latin_1')
+                                longitude = "%.4f" % geo_info['longitude']
+                                latitude = "%.4f" % geo_info['latitude']
 
-		country_name = geo_info['country_name']
-	      else:
-		city_name = None
-		country_name = None
-		longitude = None
-		latitude = None
-	      servicelog.insert(timestamp, remote_address, version, city_name, country_name, longitude, latitude)
+                                country_name = geo_info['country_name']
+                            else:
+                                city_name = None
+                                country_name = None
+                                longitude = None
+                                latitude = None
+                            service_log.insert(timestamp, remote_address, version, city_name, country_name, longitude,
+                                               latitude)
 
-    servicelog.commit()
+        service_log.commit()
 
