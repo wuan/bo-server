@@ -117,7 +117,7 @@ class RasterDataFactory(object):
         return self.raster_data[base_length]
 
 
-raster = {1: RasterDataFactory(-12, 35, 35, 65, UTM_EU),
+raster = {1: RasterDataFactory(-15, 40, 32, 70, UTM_EU),
           2: RasterDataFactory(110, 180, -50, 0, UTM_OC),
           3: RasterDataFactory(-140, -50, 10, 60, UTM_USA)}
 
