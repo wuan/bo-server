@@ -51,9 +51,9 @@ def retrieve_station_info_for(region):
     station_source = blitzortung.web.stations()
     station_source.set_region(region)
 
-    station_data = station_source.read()
+    stations_result = station_source.read()
 
-    if station_data:
+    if stations_result:
         station_db = blitzortung.db.station()
         station_offline_db = blitzortung.db.station_offline()
 
@@ -72,9 +72,9 @@ def retrieve_station_info_for(region):
         offline_limit_time = offline_limit_time.replace(tzinfo=pytz.UTC)
 
         station_builder = blitzortung.builder.Station()
-        for line in station_data.split('\n'):
-            if line.strip() != "":
-                station_builder.from_string(line)
+        for station_data in stations_result:
+	        print station_data
+                station_builder.from_data(station_data)
                 station = station_builder.build()
 
                 if station.is_valid():
@@ -97,6 +97,8 @@ def retrieve_station_info_for(region):
                             station_offline = blitzortung.data.StationOffline(0, station.get_number(),
                                                                               station.get_timestamp())
                             station_offline_db.insert(station_offline, region)
+                else:
+		    print station_data
 
         station_db.commit()
         station_offline_db.commit()
@@ -111,5 +113,5 @@ def retrieve_station_info(regions):
 
 if __name__ == "__main__":
     regions = [1, 2, 3]
-    retrieve_strokes(regions)
+#retrieve_strokes(regions)
     retrieve_station_info(regions)
