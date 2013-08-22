@@ -2,7 +2,7 @@
 
 from __future__ import division
 
-from twisted.internet import epollreactor
+from twisted.internet import epollreactor, defer
 
 epollreactor.install()
 
@@ -11,16 +11,13 @@ from twisted.cred import portal, checkers, credentials, error as credential_erro
 from twisted.cred.checkers import InMemoryUsernamePasswordDatabaseDontUse
 from twisted.web import server, http
 from twisted.web.guard import HTTPAuthSessionWrapper, DigestCredentialFactory
-from twisted.internet import reactor
 from twisted.application import service, internet
 from twisted.python.log import ILogObserver, FileLogObserver
 from twisted.python.logfile import DailyLogFile
-from twisted.python import log
 
 from txjsonrpc.auth import wrapResource
 from txjsonrpc.web import jsonrpc
 
-import logging
 import math
 import datetime
 import time
@@ -36,9 +33,9 @@ statsd_client = statsd.StatsClient('localhost', 8125, prefix='org.blitzortung.se
 import blitzortung
 
 WGS84 = pyproj.Proj(init='epsg:4326')
-UTM_EU = pyproj.Proj(init='epsg:32633') # UTM 33 N / WGS84
-UTM_USA = pyproj.Proj(init='epsg:32614') # UTM 14 N / WGS84
-UTM_OC = pyproj.Proj(init='epsg:32755') # UTM 55 S / WGS84
+UTM_EU = pyproj.Proj(init='epsg:32633')   # UTM 33 N / WGS84
+UTM_USA = pyproj.Proj(init='epsg:32614')  # UTM 14 N / WGS84
+UTM_OC = pyproj.Proj(init='epsg:32755')   # UTM 55 S / WGS84
 
 
 class PasswordDictChecker(object):
@@ -57,7 +54,7 @@ class PasswordDictChecker(object):
 
 
 class IUserAvatar(Interface):
-    ' should have attribute username '
+    """ should have attribute username """
 
 
 class UserAvatar(object):
@@ -74,7 +71,7 @@ class TestRealm(object):
         self.users = users
 
     def requestAvatar(self, avatarId, mind, *interfaces):
-        if INamedUserAvatar in interfaces:
+        if IUserAvatar in interfaces:
             logout = lambda: None
             return (IUserAvatar,
                     UserAvatar(avatarId),
@@ -111,8 +108,8 @@ class RasterDataFactory(object):
             max_lat = self.fix_max(self.min_lat, self.max_lat, delta_lat)
 
             self.raster_data[base_length] = blitzortung.geom.Raster(self.min_lon, max_lon, self.min_lat, max_lat,
-                                                                   delta_lon, delta_lat,
-                                                                   blitzortung.geom.Geometry.DefaultSrid)
+                                                                    delta_lon, delta_lat,
+                                                                    blitzortung.geom.Geometry.DefaultSrid)
 
         return self.raster_data[base_length]
 
