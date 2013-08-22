@@ -3,9 +3,11 @@
 
 import datetime
 import pytz
+import logging
 
 import blitzortung
 
+logger = logging.getLogger(__name__)
 
 def timestamp_is_newer_than(timestamp, latest_time):
     if not latest_time:
@@ -17,7 +19,7 @@ def retrieve_strokes_for(region):
     stroke_db = blitzortung.db.stroke()
     latest_time = stroke_db.get_latest_time(region)
 
-    stroke_source = blitzortung.web.strokes()
+    stroke_source = blitzortung.dataimport.strokes()
     stroke_source.set_region(region)
 
     strokes = stroke_source.get_strokes_since(latest_time)
@@ -39,12 +41,12 @@ def retrieve_station_info_for(region):
 
 # TODO add file based lock around retrieve call
 
-    station_source = blitzortung.web.stations()
+    station_source = blitzortung.dataimport.stations()
     station_source.set_region(region)
 
-    station_datas = station_source.read_data()
+    current_stations = station_source.get_stations()
 
-    if station_datas:
+    if current_stations:
         station_db = blitzortung.db.station()
         station_offline_db = blitzortung.db.station_offline()
 
@@ -62,22 +64,18 @@ def retrieve_station_info_for(region):
         offline_limit_time = now - datetime.timedelta(minutes=30)
         offline_limit_time = offline_limit_time.replace(tzinfo=pytz.UTC)
 
-        station_builder = blitzortung.builder.Station()
-        for station_data in station_datas:
-            station_builder.from_data(station_data)
-            station = station_builder.build()
-
+        for station in current_stations:
             if station.is_valid():
                 if station.get_number() not in stations_by_number or \
                         station.get_number() in stations_by_number and \
-                        station.get_short_name() == stations_by_number[
-                        station.get_number()].get_short_name() and \
+                        station.get_name() == stations_by_number[
+                        station.get_number()].get_name() and \
                         station != stations_by_number[station.get_number()] and \
                         timestamp_is_newer_than(station.get_timestamp(),
                             stations_by_number[station.get_number()].get_timestamp()):
                     station_db.insert(station, region)
-
-                if station.get_timestamp() >= offline_limit_time:
+                
+                if station.get_timestamp() is None or station.get_timestamp() >= offline_limit_time:
                     if station.get_number() in stations_offline_by_number:
                         station_offline = stations_offline_by_number[station.get_number()]
                         station_offline.set_end(station.get_timestamp())
@@ -87,6 +85,8 @@ def retrieve_station_info_for(region):
                         station_offline = blitzortung.data.StationOffline(0, station.get_number(),
                                                                           station.get_timestamp())
                         station_offline_db.insert(station_offline, region)
+            else:
+                logger.debug("INVALID: %s", station)
 
         station_db.commit()
         station_offline_db.commit()

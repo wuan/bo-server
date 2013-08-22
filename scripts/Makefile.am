@@ -2,8 +2,8 @@
 bin_SCRIPTS = \
 	bo-db \
 	bo-stations \
-	bo-retrieve \
-	bo-retrieve-raw \
+	bo-import \
+	bo-import-raw \
 	bo-location \
 	bo-webservice \
 	bo-webservice.tac \

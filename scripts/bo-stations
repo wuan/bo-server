@@ -11,9 +11,7 @@ def get_stations():
 
 def print_stations(stations):
     for station in stations:
-        print "%d %s(%s) %s %s %s" % (
-            station.get_number(), station.get_short_name(), station.get_name(), station.get_location_name(),
-            station.get_country(), station.get_timestamp())
+        print station
 
 
 if __name__ == "__main__":

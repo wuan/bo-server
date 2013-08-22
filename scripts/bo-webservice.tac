@@ -264,7 +264,7 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         station_array = []
         for station in stations:
-            station_data = [station.get_number(), station.get_location_name(), station.get_country(), station.get_x(),
+            station_data = [station.get_number(), station.get_name(), station.get_country(), station.get_x(),
                             station.get_y()]
 
             if station.get_timestamp():
