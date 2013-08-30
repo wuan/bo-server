@@ -2,6 +2,7 @@
 # -*- coding: utf8 -*-
 
 import datetime
+from optparse import OptionParser
 import pytz
 import logging
 
@@ -9,13 +10,14 @@ import blitzortung
 
 logger = logging.getLogger(__name__)
 
+
 def timestamp_is_newer_than(timestamp, latest_time):
     if not latest_time:
         return True
     return timestamp and timestamp > latest_time and timestamp - latest_time != datetime.timedelta()
 
 
-def retrieve_strokes_for(region):
+def import_strokes_for(region):
     stroke_db = blitzortung.db.stroke()
     latest_time = stroke_db.get_latest_time(region)
 
@@ -29,17 +31,20 @@ def retrieve_strokes_for(region):
 
     stroke_db.commit()
 
+    logger.info("imported %d strokes for region %d" % (len(strokes), region))
 
-def retrieve_strokes(regions):
-    # TODO add file based lock around retrieve call
+
+def import_strokes(regions):
+    # TODO add file based lock around import call
 
     for region in regions:
-        retrieve_strokes_for(region)
+        import_strokes_for(region)
 
 
-def retrieve_station_info_for(region):
+def import_station_info_for(region):
+    # TODO add file based lock around import call
 
-# TODO add file based lock around retrieve call
+    imported_station_count = 0
 
     station_source = blitzortung.dataimport.stations()
     station_source.set_region(region)
@@ -66,15 +71,16 @@ def retrieve_station_info_for(region):
 
         for station in current_stations:
             if station.is_valid():
+                imported_station_count += 1
                 if station.get_number() not in stations_by_number or \
-                        station.get_number() in stations_by_number and \
-                        station.get_name() == stations_by_number[
-                        station.get_number()].get_name() and \
-                        station != stations_by_number[station.get_number()] and \
-                        timestamp_is_newer_than(station.get_timestamp(),
-                            stations_by_number[station.get_number()].get_timestamp()):
+                                                        station.get_number() in stations_by_number and \
+                                                        station.get_name() == stations_by_number[
+                                                    station.get_number()].get_name() and \
+                                                station != stations_by_number[station.get_number()] and \
+                                timestamp_is_newer_than(station.get_timestamp(),
+                                                        stations_by_number[station.get_number()].get_timestamp()):
                     station_db.insert(station, region)
-                
+
                 if station.get_timestamp() is None or station.get_timestamp() >= offline_limit_time:
                     if station.get_number() in stations_offline_by_number:
                         station_offline = stations_offline_by_number[station.get_number()]
@@ -91,15 +97,32 @@ def retrieve_station_info_for(region):
         station_db.commit()
         station_offline_db.commit()
 
+    logger.info("imported %d stations for region %d" % (imported_station_count, region))
 
-def retrieve_station_info(regions):
-    # TODO add file based lock around retrieve call
+
+def import_station_info(regions):
+    # TODO add file based lock around import call
 
     for region in regions:
-        retrieve_station_info_for(region)
+        import_station_info_for(region)
 
 
 if __name__ == "__main__":
+    parser = OptionParser()
+    parser.add_option("-v", "--verbose", dest="verbose", action="store_true", help="verbose output")
+    parser.add_option("-d", "--debug", dest="debug", action="store_true", help="debug output")
+
+    (options, args) = parser.parse_args()
+
+    root_logger = logging.getLogger()
+    log_handler = logging.StreamHandler()
+    log_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
+    root_logger.addHandler(log_handler)
+    if options.verbose:
+        root_logger.setLevel(logging.INFO)
+    if options.debug:
+        root_logger.setLevel(logging.DEBUG)
+
     regions = [1, 2, 3]
-    retrieve_strokes(regions)
-    retrieve_station_info(regions)
+    import_strokes(regions)
+    import_station_info(regions)
