@@ -98,6 +98,8 @@ for log_file_date in log_file_dates:
                                 latitude = "%.4f" % geo_info['latitude']
 
                                 country_name = geo_info['country_name']
+                                if country_name:
+                                    country_name = country_name.decode('latin_1')
                             else:
                                 city_name = None
                                 country_name = None
