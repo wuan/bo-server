@@ -17,9 +17,11 @@ def timestamp_is_newer_than(timestamp, latest_time):
     return timestamp and timestamp > latest_time and timestamp - latest_time != datetime.timedelta()
 
 
-def import_strokes_for(region):
+def import_strokes_for(region, start_time):
     stroke_db = blitzortung.db.stroke()
     latest_time = stroke_db.get_latest_time(region)
+    if not latest_time:
+        latest_time = start_time
 
     stroke_source = blitzortung.dataimport.strokes()
     stroke_source.set_region(region)
@@ -34,11 +36,11 @@ def import_strokes_for(region):
     logger.info("imported %d strokes for region %d" % (len(strokes), region))
 
 
-def import_strokes(regions):
+def import_strokes(regions, start_time):
     # TODO add file based lock around import call
 
     for region in regions:
-        import_strokes_for(region)
+        import_strokes_for(region, start_time)
 
 
 def import_station_info_for(region):
@@ -111,6 +113,7 @@ if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true", help="verbose output")
     parser.add_option("-d", "--debug", dest="debug", action="store_true", help="debug output")
+    parser.add_option("--startdate", dest="startdate", default=None, help="import start date")
 
     (options, args) = parser.parse_args()
 
@@ -122,7 +125,8 @@ if __name__ == "__main__":
         root_logger.setLevel(logging.INFO)
     if options.debug:
         root_logger.setLevel(logging.DEBUG)
+    start_time = datetime.datetime.strptime(options.startdate, "%Y%m%d").replace(tzinfo=pytz.UTC) if options.startdate else None
 
     regions = [1, 2, 3]
-    import_strokes(regions)
+    import_strokes(regions, start_time)
     import_station_info(regions)
