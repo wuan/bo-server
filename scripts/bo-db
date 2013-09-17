@@ -145,11 +145,11 @@ stroke_db.set_srid(options.srid)
 stroke_db.set_timezone(tz)
 
 # set time range 
-time_range = blitzortung.db.TimeInterval(start_time, end_time)
+time_range = blitzortung.db.query.TimeInterval(start_time, end_time)
 
 # set query parameters
-limit = blitzortung.db.Limit(5)
-order = blitzortung.db.Order('timestamp')
+limit = blitzortung.db.query.Limit(5)
+order = blitzortung.db.query.Order('timestamp')
 
 raster = prepare_raster_if_applicable(options, area)
 

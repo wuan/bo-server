@@ -68,13 +68,13 @@ else:
     location_db.set_srid(options.srid)
 
     # set other query parameters
-    limit = blitzortung.db.Limit(5)
-    order = blitzortung.db.Order('id')
+    limit = blitzortung.db.query.Limit(5)
+    order = blitzortung.db.query.Order('id')
 
     # start timer for database select
     timer = blitzortung.util.Timer()
 
-    center = blitzortung.db.Center(shapely.geometry.Point(float(options.xpos), float(options.ypos)))
+    center = blitzortung.db.query.Center(shapely.geometry.Point(float(options.xpos), float(options.ypos)))
 
     # query location database
     locations = location_db.select(center)

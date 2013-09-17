@@ -156,15 +156,15 @@ class Blitzortung(jsonrpc.JSONRPC):
         end_time += datetime.timedelta(minutes=minute_offset)
 
         start_time = end_time - datetime.timedelta(minutes=minute_length)
-        time_interval = blitzortung.db.TimeInterval(start_time, end_time)
+        time_interval = blitzortung.db.query.TimeInterval(start_time, end_time)
 
         if id_or_offset > 0:
-            id_interval = blitzortung.db.IdInterval(id_or_offset)
+            id_interval = blitzortung.db.query.IdInterval(id_or_offset)
         else:
             id_interval = None
 
         area = None
-        order = blitzortung.db.Order('id')
+        order = blitzortung.db.query.Order('id')
 
         reference_time = time.time()
         strokes = stroke_db.select(time_interval, id_interval, area, order)
@@ -205,7 +205,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         end_time += datetime.timedelta(minutes=minute_offset)
 
         start_time = end_time - datetime.timedelta(minutes=minute_length)
-        time_interval = blitzortung.db.TimeInterval(start_time, end_time)
+        time_interval = blitzortung.db.query.TimeInterval(start_time, end_time)
 
         raster_data = raster[region].get_for(raster_baselength)
 
