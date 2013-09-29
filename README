@@ -2,3 +2,6 @@ bo-server
 =========
 
 generic server software for blitzortung.org
+
+requires
+	lockfile >= 0.9
