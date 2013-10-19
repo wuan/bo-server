@@ -26,9 +26,8 @@ def import_strokes_for(region, start_time):
         latest_time = start_time
 
     stroke_source = blitzortung.dataimport.strokes()
-    stroke_source.set_region(region)
 
-    strokes = stroke_source.get_strokes_since(latest_time)
+    strokes = stroke_source.get_strokes_since(latest_time, region=region)
 
     for stroke in strokes:
         stroke_db.insert(stroke, region)
@@ -51,9 +50,8 @@ def import_station_info_for(region):
     imported_station_count = 0
 
     station_source = blitzortung.dataimport.stations()
-    station_source.set_region(region)
 
-    current_stations = station_source.get_stations()
+    current_stations = station_source.get_stations(region=region)
 
     if current_stations:
         station_db = blitzortung.db.station()
