@@ -133,4 +133,3 @@ if __name__ == "__main__":
         regions = [1, 2, 3]
         import_strokes(regions, start_time)
         import_station_info(regions)
-        time.sleep(10)
