@@ -299,7 +299,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         forward = request.getHeader("X-Forwarded-For")
         if forward:
             return forward.split(', ')[0]
-        return request.getClient()
+        return request.getClientIP()
 
 
 users = {'test': 'test'}
