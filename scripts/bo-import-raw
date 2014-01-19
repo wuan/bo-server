@@ -41,7 +41,7 @@ for index, station_id in enumerate(station_ids):
     count = 0
     bo_data = subprocess.Popen(['bo-data', '-o', os.path.join(target_folder_name, str(station_id) + '_%Y%m%d.bor')], stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     check_date = True
-    for raw_line in raw_data.split('\n'):
+    for raw_line in raw_data:
       fields = raw_line.split(" ")
       if check_date:
 	if datetime.datetime.strptime(fields[0], "%Y-%m-%d").date() != reference_time.date():
