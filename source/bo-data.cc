@@ -266,30 +266,52 @@ void addStreamToInputFile(std::istream& istream, const std::string& outputFile) 
       float longitude;
       float latitude;
       short altitude;
-      unsigned short numberOfChannels;
-      unsigned short numberOfSamples;
-      unsigned short numberOfBitsPerSample;
-      unsigned short sampleTime;
-      std::string data;
 
-      iss >> timestamp >> latitude >> longitude >> altitude >> numberOfChannels >> numberOfSamples >> numberOfBitsPerSample >> sampleTime >> data;
+      iss >> timestamp >> latitude >> longitude >> altitude;
 
-      blitzortung::data::Format format((numberOfBitsPerSample-1)/8+1, numberOfChannels, numberOfSamples);
+        unsigned short numberOfSamples;
+      unsigned short numberOfChannels = 0;
+      while (! iss.eof()) {
+        unsigned short channelIndex;
+        std::string channelType;
+        unsigned short unknown;
+        float gain;
+        unsigned short start;
+        unsigned short bits;
+        short shift;
+        unsigned short conversionTime;
+        unsigned short conversionGap;
+        std::string hexData;
 
-      blitzortung::parser::Sample sampleParser(format, timestamp, sampleTime, data);
+        iss >> channelIndex
+            >> channelType
+            >> unknown
+            >> gain
+            >> numberOfSamples
+            >> start
+            >> bits
+            >> shift
+            >> conversionTime
+            >> conversionGap
+            >> hexData;
+      }
 
-      blitzortung::data::Waveform::AP waveform = sampleParser.getWaveform();
+      //blitzortung::data::Format format((numberOfBitsPerSample-1)/8+1, numberOfChannels, numberOfSamples);
+
+      //blitzortung::parser::Sample sampleParser(format, timestamp, sampleTime, data);
+
+      //blitzortung::data::Waveform::AP waveform = sampleParser.getWaveform();
 
       blitzortung::data::GpsInfo::AP gpsInfo(new blitzortung::data::GpsInfo(longitude, latitude, altitude));
 
-      blitzortung::data::Event::AP event(new blitzortung::data::Event(std::move(waveform), std::move(gpsInfo)));
+      //blitzortung::data::Event::AP event(new blitzortung::data::Event(std::move(waveform), std::move(gpsInfo)));
 
-      if (events.size() != 0 && events.getDate() != event->getWaveform().getTimestamp().date()) {
-	events.appendToFile(outputFile);
-	events.clear();
-      }
+      //if (events.size() != 0 && events.getDate() != event->getWaveform().getTimestamp().date()) {
+	//events.appendToFile(outputFile);
+	//events.clear();
+      //}
 
-      events.add(std::move(event));
+      //events.add(std::move(event));
     }
   }
   if (events.size() != 0) {

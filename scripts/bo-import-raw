@@ -24,7 +24,7 @@ print reference_time
 
 target_folder_for_day_name = reference_time.strftime(target_folder_name)
 if not os.path.exists(target_folder_for_day_name):
-  os.makedirs(target_folder_for_day_name)
+    os.makedirs(target_folder_for_day_name)
 
 station_source = blitzortung.dataimport.stations()
 stations = station_source.get_stations(region=region)
