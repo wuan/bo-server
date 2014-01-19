@@ -2,9 +2,16 @@
 
 from __future__ import division
 
-from twisted.internet import epollreactor, defer
+from twisted.internet import kqreactor, defer
 
-epollreactor.install()
+#epollreactor.install()
+from twisted.internet.error import ReactorAlreadyInstalledError
+from txjsonrpc.web.jsonrpc import with_request
+
+try:
+    kqreactor.install()
+except ReactorAlreadyInstalledError:
+    pass
 
 from zope.interface import Interface, implements
 from twisted.cred import portal, checkers, credentials, error as credential_error
@@ -230,7 +237,8 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         return response
 
-    def jsonrpc_get_strokes_raster(self, minute_length, raster_base_length=10000, minute_offset=0, region=1):
+    @with_request
+    def jsonrpc_get_strokes_raster(self, request, minute_length, raster_base_length=10000, minute_offset=0, region=1):
         raster_base_length = self.__force_min(raster_base_length, 5000)
         minute_length = self.__force_range(minute_length, 0, 24 * 60)
         minute_offset = self.__force_range(minute_offset, -24 * 60 + minute_length, 0)
@@ -248,9 +256,12 @@ class Blitzortung(jsonrpc.JSONRPC):
         statsd_client.timing('strokes_raster', int(full_time * 1000))
         statsd_client.gauge('strokes_raster.size', data_size)
 
-        print 'get_strokes_raster(%d, %d, %d, %d): #%d (%.2fs, %.1f%%)' % (
+        forward = request.getHeader("X-Forwarded-For")
+        user_agent = request.getHeader("User-Agent")
+        print request.getHost()
+        print 'get_strokes_raster(%d, %d, %d, %d): #%d (%.2fs, %.1f%%) %s, %s' % (
             minute_length, raster_base_length, minute_offset, region, data_size, full_time,
-            self.strokes_raster_cache.get_ratio() * 100)
+            self.strokes_raster_cache.get_ratio() * 100, forward, user_agent)
 
         return response
 
