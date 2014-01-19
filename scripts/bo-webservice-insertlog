@@ -72,8 +72,8 @@ for log_file_date in log_file_dates:
                 try:
                     fields = shlex.split(line)
 
-		    if len(fields) >= 4:
-			remote_address = fields[3]
+		    if len(fields) >= 6:
+			remote_address = fields[5]
 			if is_valid_ip_address(remote_address):
 			    date = fields[0]
 			    time = fields[1]
@@ -81,7 +81,7 @@ for log_file_date in log_file_dates:
 				tzinfo=pytz.UTC)
 			    if latest_time is None or timestamp > latest_time:
 				logger.debug("add line: " + line.strip())
-				user_agent = fields[12]
+				user_agent = fields[6]
 				version = None
 				version_prefix = 'bo-android-'
 				if user_agent.startswith(version_prefix):
