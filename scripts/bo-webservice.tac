@@ -2,14 +2,12 @@
 
 from __future__ import division
 
-from twisted.internet import kqreactor, defer
-
-#epollreactor.install()
+from twisted.internet import epollreactor, defer
 from twisted.internet.error import ReactorAlreadyInstalledError
 from txjsonrpc.web.jsonrpc import with_request
 
 try:
-    kqreactor.install()
+    epollreactor.install()
 except ReactorAlreadyInstalledError:
     pass
 
@@ -30,10 +28,7 @@ import datetime
 import time
 import pyproj
 import pytz
-import json
 import statsd
-
-json.encoder.FLOAT_REPR = lambda f: ("%.4f" % f)
 
 statsd_client = statsd.StatsClient('localhost', 8125, prefix='org.blitzortung.service')
 
@@ -150,7 +145,8 @@ class Blitzortung(jsonrpc.JSONRPC):
         self.check_count += 1
         return {'count': self.check_count}
 
-    def jsonrpc_get_strokes(self, minute_length, id_or_offset=0):
+    @with_request
+    def jsonrpc_get_strokes(self, request, minute_length, id_or_offset=0):
         minute_length = self.__force_range(minute_length, 0, 24 * 60)
         minute_offset = self.__force_range(id_or_offset, -24 * 60 + minute_length,
                                            0) if id_or_offset < 0 else 0
@@ -180,9 +176,9 @@ class Blitzortung(jsonrpc.JSONRPC):
         statsd_client.timing('strokes.query', int(db_query_time * 1000))
 
         reference_time = time.time()
-        stroke_array = map(lambda stroke: [(end_time - stroke.get_timestamp()).seconds, stroke.get_x(), stroke.get_y(),
-                                           stroke.get_lateral_error(), stroke.get_amplitude(),
-                                           stroke.get_station_count(), stroke.get_type()], strokes)
+        stroke_array = map(lambda stroke: [(end_time - stroke.get_timestamp()).seconds, round(stroke.get_x(), 4), round(stroke.get_y(), 4),
+                                           stroke.get_lateral_error(), round(stroke.get_amplitude(), 1),
+                                           stroke.get_station_count(), stroke.get_altitude()], strokes)
         statsd_client.timing('strokes.reduce', int((time.time() - reference_time) * 1000))
 
         response = {'s': stroke_array, 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
@@ -191,8 +187,10 @@ class Blitzortung(jsonrpc.JSONRPC):
         if strokes:
             response['next'] = long(strokes[-1].get_id() + 1)
 
-        print 'get_strokes(%d, %d): #%d (%.2fs)' % (
-            minute_length, id_or_offset, len(strokes), db_query_time)
+        client = self.get_request_client(request)
+        user_agent = request.getHeader("User-Agent")
+        print 'get_strokes(%d, %d): #%d (%.2fs) %s %s' % (
+            minute_length, id_or_offset, len(strokes), db_query_time, client, user_agent)
 
         full_time = time.time()
         statsd_client.incr('strokes')
@@ -229,8 +227,8 @@ class Blitzortung(jsonrpc.JSONRPC):
         statsd_client.timing('strokes_raster.histogram_query', int((time.time() - reference_time) * 1000))
 
         reference_time = time.time()
-        response = {'r': reduced_stroke_array, 'xd': raster_data.get_x_div(), 'yd': raster_data.get_y_div(),
-                    'x0': raster_data.get_x_min(), 'y1': raster_data.get_y_max(), 'xc': raster_data.get_x_bin_count(),
+        response = {'r': reduced_stroke_array, 'xd': round(raster_data.get_x_div(), 6), 'yd': round(raster_data.get_y_div(), 6),
+                    'x0': round(raster_data.get_x_min(), 4), 'y1': round(raster_data.get_y_max(), 4), 'xc': raster_data.get_x_bin_count(),
                     'yc': raster_data.get_y_bin_count(), 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
                     'h': histogram}
         statsd_client.timing('strokes_raster.pack_response', int((time.time() - reference_time) * 1000))
@@ -256,16 +254,16 @@ class Blitzortung(jsonrpc.JSONRPC):
         statsd_client.timing('strokes_raster', int(full_time * 1000))
         statsd_client.gauge('strokes_raster.size', data_size)
 
-        forward = request.getHeader("X-Forwarded-For")
+        client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
-        print request.getHost()
-        print 'get_strokes_raster(%d, %d, %d, %d): #%d (%.2fs, %.1f%%) %s, %s' % (
+        print 'get_strokes_raster(%d, %d, %d, %d): #%d (%.2fs, %.1f%%) %s %s' % (
             minute_length, raster_base_length, minute_offset, region, data_size, full_time,
-            self.strokes_raster_cache.get_ratio() * 100, forward, user_agent)
+            self.strokes_raster_cache.get_ratio() * 100, client, user_agent)
 
         return response
 
-    def jsonrpc_get_stations(self):
+    @with_request
+    def jsonrpc_get_stations(self, request):
         stations_db = blitzortung.db.station()
 
         reference_time = time.time()
@@ -289,11 +287,19 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         full_time = time.time()
 
-        print 'get_stations(): #%d (%.2fs)' % (len(stations), query_time - reference_time)
+        client = self.get_request_client(request)
+        user_agent = request.getHeader("User-Agent")
+        print 'get_stations(): #%d (%.2fs) %s %s' % (len(stations), query_time - reference_time, client, user_agent)
         statsd_client.incr('stations')
         statsd_client.timing('stations', int((full_time - reference_time) * 1000))
 
         return response
+
+    def get_request_client(self, request):
+        forward = request.getHeader("X-Forwarded-For")
+        if forward:
+            return forward.split(', ')[0]
+        return request.getClient()
 
 
 users = {'test': 'test'}
