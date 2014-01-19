@@ -14,41 +14,38 @@ region = 1
 station_ids = []
 
 target_folder_name = "/var/cache/blitzortung/raw/archive/%Y/%m/%d"
+target_folder_name = "raw/archive/%Y/%m/%d"
 
 now = datetime.datetime.utcnow()
 reference_time = (now - datetime.timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+reference_time = reference_time.replace(tzinfo=pytz.UTC)
+
+print reference_time
 
 target_folder_for_day_name = reference_time.strftime(target_folder_name)
 if not os.path.exists(target_folder_for_day_name):
-  os.makedirs(target_folder_for_day_name)
+    os.makedirs(target_folder_for_day_name)
 
-station_source = blitzortung.web.stations()
-station_source.set_region(region)
-stations = station_source.read()
+station_source = blitzortung.dataimport.stations()
+stations = station_source.get_stations(region=region)
 if stations:
-  for station in stations.split('\n'):
-    station_ids.append(station.split(" ")[1])
+  for station in stations:
+    station_ids.append(station.get_number())
 
 for index, station_id in enumerate(station_ids):
-  raw_data_source = blitzortung.web.raw()
-  raw_data_source.set_region(region)
-  raw_data_source.set_station_id(station_id)
-  raw_data_source.set_hour(reference_time.hour)
-
-  try:
-    raw_data = raw_data_source.read().strip()
-  except:
-    continue
+  raw_data_source = blitzortung.dataimport.raw()
+  raw_data = raw_data_source.get_raw_data_since(reference_time, region=region, station_id=station_id)
+  print raw_data
 
   if raw_data:
     count = 0
-    bo_data = subprocess.Popen(['bo-data', '-o', os.path.join(target_folder_name, station_id + '_%Y%m%d.bor')], stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    bo_data = subprocess.Popen(['bo-data', '-o', os.path.join(target_folder_name, str(station_id) + '_%Y%m%d.bor')], stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     check_date = True
-    for raw_line in raw_data.split('\n'):
+    for raw_line in raw_data:
       fields = raw_line.split(" ")
       if check_date:
 	if datetime.datetime.strptime(fields[0], "%Y-%m-%d").date() != reference_time.date():
-	  ' date mismatch -> stop adding data '
+          # date mismatch -> stop adding data
 	  break
 	check_date = False
       bo_data.stdin.write(raw_line + '\n')

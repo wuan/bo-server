@@ -1,0 +1,57 @@
+#!/usr/bin/env python
+
+import matplotlib.pyplot as plt
+
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+
+import blitzortung
+import datetime
+import shapely
+import logging
+import time
+
+logger = logging.getLogger(__name__)
+
+def main():
+    # open stroke database
+    stroke_db = blitzortung.db.stroke()
+
+    end_time = datetime.datetime.utcnow()
+    start_time = end_time - datetime.timedelta(hours=24)
+    # set time range 
+    time_range = blitzortung.db.query.TimeInterval(start_time, end_time)
+
+    strokes = stroke_db.select(time_range)
+
+    crs = ccrs.PlateCarree()
+
+    
+    ax = plt.axes(projection=crs)
+    ax.set_extent([-20, 50, 30, 70])
+
+    # Put a background image on for nice sea rendering.
+    ax.stock_img()
+
+    x_coords = [stroke.get_x() for stroke in strokes]
+    y_coords = [stroke.get_y() for stroke in strokes]
+    
+    plt.plot(x_coords, y_coords, marker='+', linestyle='', transform=crs)
+
+    resolution = '50m'
+    land = cfeature.NaturalEarthFeature('physical', 'land', resolution, edgecolor='none', facecolor=cfeature.COLORS['land'])
+    ax.add_feature(land)
+    urban = cfeature.NaturalEarthFeature('cultural', 'urban_areas', resolution, edgecolor='none', facecolor='DarkSalmon')
+    ax.add_feature(urban)
+    rivers = cfeature.NaturalEarthFeature('physical', 'rivers_lake_centerlines', resolution, edgecolor=cfeature.COLORS['water'], facecolor='none')
+    ax.add_feature(rivers)
+    lakes = cfeature.NaturalEarthFeature('physical', 'lakes', resolution, edgecolor='face', facecolor=cfeature.COLORS['water'])
+    ax.add_feature(lakes)
+    countries = cfeature.NaturalEarthFeature('cultural', 'admin_0_countries', resolution, edgecolor='gray', facecolor='none')
+    ax.add_feature(countries)
+
+    plt.show()
+
+if __name__ == '__main__':
+    main()
+

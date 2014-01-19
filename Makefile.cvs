@@ -1,4 +1,0 @@
-all:
-	if [ ${CWD} ]; then cd ${CWD}; fi; \
-	aclocal && autoconf && autoheader && libtoolize && automake --add-missing && ./configure
-

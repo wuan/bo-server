@@ -1,6 +1,7 @@
 blitzortung-server (1.3.0) unstable; urgency=low
 
   * refactored and adapted blitzortung data import to new format
+  * introduced file based locking to bo-import
 
  -- Andreas Wuerl <blitzortung@tryb.de>  THu, 22 Aug 2013 06:45:23 +0200
 
