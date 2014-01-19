@@ -173,9 +173,9 @@ class Blitzortung(jsonrpc.JSONRPC):
         statsd_client.timing('strokes.query', int(db_query_time * 1000))
 
         reference_time = time.time()
-        stroke_array = map(lambda stroke: [(end_time - stroke.get_timestamp()).seconds, stroke.get_x(), stroke.get_y(),
-                                           stroke.get_lateral_error(), stroke.get_amplitude(),
-                                           stroke.get_station_count(), stroke.get_type()], strokes)
+        stroke_array = [ [(end_time - stroke.get_timestamp()).seconds, stroke.get_x(), stroke.get_y(),
+                                           stroke.get_altitude(), stroke.get_lateral_error(), stroke.get_amplitude(),
+                                           stroke.get_station_count()] for stroke in strokes]
         statsd_client.timing('strokes.reduce', int((time.time() - reference_time) * 1000))
 
         response = {'s': stroke_array, 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
