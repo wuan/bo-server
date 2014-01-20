@@ -72,39 +72,40 @@ for log_file_date in log_file_dates:
                 try:
                     fields = shlex.split(line)
 
-		    if len(fields) >= 6:
-			remote_address = fields[5]
-			if is_valid_ip_address(remote_address):
-			    date = fields[0]
-			    time = fields[1]
-			    timestamp = datetime.datetime.strptime(date + ' ' + time[:-5], '%Y-%m-%d %H:%M:%S').replace(
-				tzinfo=pytz.UTC)
-			    if latest_time is None or timestamp > latest_time:
-				logger.debug("add line: " + line.strip())
-				user_agent = fields[6]
-				version = None
-				version_prefix = 'bo-android-'
-				if user_agent.startswith(version_prefix):
-				    version = int(user_agent[len(version_prefix):])
+                    if len(fields) >= 6:
+                        remote_address = fields[5]
+                        if is_valid_ip_address(remote_address):
+                            date = fields[0]
+                            time = fields[1]
+                            timestamp = datetime.datetime.strptime(date + ' ' + time[:-5], '%Y-%m-%d %H:%M:%S').replace(
+                                tzinfo=pytz.UTC)
+                            if latest_time is None or timestamp > latest_time:
+                                logger.debug("add line: " + line.strip())
+                                user_agent = fields[6]
+                                version = None
+                                version_prefix = 'bo-android-'
+                                if user_agent.startswith(version_prefix):
+                                    version = int(user_agent[len(version_prefix):])
 
-				geo_info = geoip.record_by_addr(remote_address)
-				if geo_info:
-				    city_name = geo_info['city']
-				    if city_name:
-					city_name = city_name.decode('latin_1')
-				    longitude = "%.4f" % geo_info['longitude']
-				    latitude = "%.4f" % geo_info['latitude']
+                                geo_info = geoip.record_by_addr(remote_address)
+                                if geo_info:
+                                    city_name = geo_info['city']
+                                    if city_name:
+                                        city_name = city_name.decode('latin_1')
+                                    longitude = "%.4f" % geo_info['longitude']
+                                    latitude = "%.4f" % geo_info['latitude']
 
-				    country_name = geo_info['country_name']
-				    if country_name:
-					country_name = country_name.decode('latin_1')
-				else:
-				    city_name = None
-				    country_name = None
-				    longitude = None
-				    latitude = None
-				service_log.insert(timestamp, remote_address, version, city_name, country_name, longitude,
-						   latitude)
+                                    country_name = geo_info['country_name']
+                                    if country_name:
+                                        country_name = country_name.decode('latin_1')
+                                else:
+                                    city_name = None
+                                    country_name = None
+                                    longitude = None
+                                    latitude = None
+                                service_log.insert(timestamp, remote_address, version, city_name, country_name,
+                                                   longitude,
+                                                   latitude)
                 except ValueError:
                     continue
     else:
