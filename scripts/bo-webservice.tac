@@ -173,13 +173,13 @@ class Blitzortung(jsonrpc.JSONRPC):
         strokes = stroke_db.select(time_interval, id_interval, area, order)
         query_time = time.time()
         db_query_time = (query_time - reference_time)
-        statsd_client.timing('strokes.query', int(db_query_time * 1000))
+        statsd_client.timing('strokes.query', max(1, int(db_query_time * 1000)))
 
         reference_time = time.time()
         stroke_array = [ [(end_time - stroke.get_timestamp()).seconds, stroke.get_x(), stroke.get_y(),
                                            stroke.get_altitude(), stroke.get_lateral_error(), stroke.get_amplitude(),
                                            stroke.get_station_count()] for stroke in strokes]
-        statsd_client.timing('strokes.reduce', int((time.time() - reference_time) * 1000))
+        statsd_client.timing('strokes.reduce', max(1, int((time.time() - reference_time) * 1000)))
 
         response = {'s': stroke_array, 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
                     'h': stroke_db.select_histogram(minute_length, minute_offset, 5)}
@@ -194,7 +194,7 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         full_time = time.time()
         statsd_client.incr('strokes')
-        statsd_client.timing('strokes', int((full_time - reference_time) * 1000))
+        statsd_client.timing('strokes', max(1, int((full_time - reference_time) * 1000)))
 
         return response
 
@@ -216,22 +216,22 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         reference_time = time.time()
         raster_strokes = stroke_db.select_raster(raster_data, time_interval)
-        statsd_client.timing('strokes_raster.query', int((time.time() - reference_time) * 1000))
+        statsd_client.timing('strokes_raster.query', max(1, int((time.time() - reference_time) * 1000)))
 
         reference_time = time.time()
         reduced_stroke_array = raster_strokes.to_reduced_array(end_time)
-        statsd_client.timing('strokes_raster.reduce', int((time.time() - reference_time) * 1000))
+        statsd_client.timing('strokes_raster.reduce', max(1, int((time.time() - reference_time) * 1000)))
 
         reference_time = time.time()
         histogram = stroke_db.select_histogram(minute_length, minute_offset, 5, envelope=raster_data)
-        statsd_client.timing('strokes_raster.histogram_query', int((time.time() - reference_time) * 1000))
+        statsd_client.timing('strokes_raster.histogram_query', max(1, int((time.time() - reference_time) * 1000)))
 
         reference_time = time.time()
         response = {'r': reduced_stroke_array, 'xd': round(raster_data.get_x_div(), 6), 'yd': round(raster_data.get_y_div(), 6),
                     'x0': round(raster_data.get_x_min(), 4), 'y1': round(raster_data.get_y_max(), 4), 'xc': raster_data.get_x_bin_count(),
                     'yc': raster_data.get_y_bin_count(), 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
                     'h': histogram}
-        statsd_client.timing('strokes_raster.pack_response', int((time.time() - reference_time) * 1000))
+        statsd_client.timing('strokes_raster.pack_response', max(1, int((time.time() - reference_time) * 1000)))
 
         return response
 
@@ -251,7 +251,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         data_size = len(response['r'])
 
         statsd_client.incr('strokes_raster')
-        statsd_client.timing('strokes_raster', int(full_time * 1000))
+        statsd_client.timing('strokes_raster', max(1, int(full_time * 1000)))
         statsd_client.gauge('strokes_raster.size', data_size)
 
         client = self.get_request_client(request)
@@ -269,7 +269,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         reference_time = time.time()
         stations = stations_db.select()
         query_time = time.time()
-        statsd_client.timing('stations.query', int((query_time - reference_time) * 1000))
+        statsd_client.timing('stations.query', max(int((query_time - reference_time) * 1000)))
 
         station_array = []
         for station in stations:
@@ -291,7 +291,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         user_agent = request.getHeader("User-Agent")
         print '"get_stations()" "#%d %.2fs" %s "%s"' % (len(stations), query_time - reference_time, client, user_agent)
         statsd_client.incr('stations')
-        statsd_client.timing('stations', int((full_time - reference_time) * 1000))
+        statsd_client.timing('stations', max(1, int((full_time - reference_time) * 1000)))
 
         return response
 
