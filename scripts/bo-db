@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf8 -*-
 
+from __future__ import print_function
 import sys
 import datetime
 import math
@@ -12,7 +13,8 @@ from optparse import OptionParser, SUPPRESS_HELP
 import shapely.geometry
 import shapely.wkt
 
-import blitzortung
+import blitzortung.config
+import blitzortung.geom
 
 DATE_FORMAT = '%Y%m%d'
 TIME_FORMAT = '%H%M'
@@ -30,7 +32,7 @@ def parse_time(date_string, time_string, description, is_end_time=False):
             parsed_time += (datetime.timedelta(seconds=1) if has_seconds else datetime.timedelta(minutes=1))
         return parsed_time
     except:
-        print "parse error in %s" % description
+        print("parse error in %s" % description)
         sys.exit(5)
 
 
@@ -52,7 +54,7 @@ def prepare_raster_if_applicable(options, area):
                 raster_x = raster_y
 
         if options.area is None:
-            print "raster options requires declaration of envelope area"
+            print("raster options requires declaration of envelope area")
             sys.exit(1)
         env = area.envelope.bounds
         return blitzortung.geom.Raster(env[0], env[2], env[1], env[3], raster_x, raster_y, options.srid)
@@ -109,7 +111,7 @@ parser.add_option("--map", dest="map", action="store_true",
 try:
     tz = pytz.timezone(options.tz)
 except:
-    print 'parse error in timezone "' + options.tz + '"'
+    print('parse error in timezone "' + options.tz + '"')
     sys.exit(1)
 
 start_time = start_time.astimezone(tz)
@@ -132,7 +134,7 @@ if options.area:
     try:
         area = shapely.wkt.loads(options.area)
     except:
-        print 'parse error in area "' + options.area + '"'
+        print('parse error in area "' + options.area + '"')
 
     if options.useenv:
         area = area.envelope
@@ -161,11 +163,7 @@ if raster:
 
     select_time = timer.lap()
 
-    if options.map:
-        print raster_result.to_map()
-    else:
-        print raster_result.to_arcgrid()
-
+    print(raster_result.to_map() if options.map else raster_result.to_arcgrid())
     sys.stderr.write('received raster data in %.3f seconds\n' % (select_time))
 
 else:
@@ -178,7 +176,7 @@ else:
     for stroke in strokes:
         location_x = round(stroke.get_x() * precision_factor) / precision_factor
         location_y = round(stroke.get_y() * precision_factor) / precision_factor
-        print str(stroke)
+        print(str(stroke))
 
     sys.stderr.write('received %d strokes in %.3f seconds\n' % (len(strokes), select_time))
 

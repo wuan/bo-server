@@ -9,7 +9,8 @@ import logging
 import time
 import statsd
 
-import blitzortung
+import blitzortung.dataimport
+import blitzortung.db
 
 logger = logging.getLogger(__name__)
 
