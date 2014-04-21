@@ -32,7 +32,11 @@ import statsd
 
 statsd_client = statsd.StatsClient('localhost', 8125, prefix='org.blitzortung.service')
 
-import blitzortung
+import blitzortung.config
+import blitzortung.cache
+import blitzortung.geom
+import blitzortung.db
+import blitzortung.db.query
 
 WGS84 = pyproj.Proj(init='epsg:4326')
 UTM_EU = pyproj.Proj(init='epsg:32633')   # UTM 33 N / WGS84
