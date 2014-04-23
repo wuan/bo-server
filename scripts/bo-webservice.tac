@@ -269,7 +269,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         reference_time = time.time()
         stations = stations_db.select()
         query_time = time.time()
-        statsd_client.timing('stations.query', max(int((query_time - reference_time) * 1000)))
+        statsd_client.timing('stations.query', max(1, int((query_time - reference_time) * 1000)))
 
         station_array = []
         for station in stations:
