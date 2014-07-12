@@ -150,6 +150,10 @@ class Blitzortung(jsonrpc.JSONRPC):
         return {'count': self.check_count}
 
     @with_request
+    def jsonrpc_get_strikes(self, request, minute_length, id_or_offset=0):
+        return jsonrpc_get_strokes(request, minute_length, id_or_offset)
+
+    @with_request
     def jsonrpc_get_strokes(self, request, minute_length, id_or_offset=0):
         minute_length = self.__force_range(minute_length, 0, 24 * 60)
         minute_offset = self.__force_range(id_or_offset, -24 * 60 + minute_length,
@@ -238,6 +242,10 @@ class Blitzortung(jsonrpc.JSONRPC):
         statsd_client.timing('strokes_raster.pack_response', max(1, int((time.time() - reference_time) * 1000)))
 
         return response
+
+    @with_request
+    def jsonrpc_get_strikes_raster(self, request, minute_length, raster_base_length=10000, minute_offset=0, region=1):
+        return self.jsonrpc_get_strokes_raster(request, minute_length, raster_base_length, minute_offset, region)
 
     @with_request
     def jsonrpc_get_strokes_raster(self, request, minute_length, raster_base_length=10000, minute_offset=0, region=1):
