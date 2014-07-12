@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from __future__ import division
+from __future__ import division, print_function
 
 from twisted.internet import epollreactor, defer
 from twisted.internet.error import ReactorAlreadyInstalledError
@@ -151,7 +151,7 @@ class Blitzortung(jsonrpc.JSONRPC):
 
     @with_request
     def jsonrpc_get_strikes(self, request, minute_length, id_or_offset=0):
-        return jsonrpc_get_strokes(request, minute_length, id_or_offset)
+        return self.jsonrpc_get_strokes(request, minute_length, id_or_offset)
 
     @with_request
     def jsonrpc_get_strokes(self, request, minute_length, id_or_offset=0):
@@ -197,8 +197,8 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
-        print '"get_strokes(%d, %d)" "#%d %.2fs" %s "%s"' % (
-            minute_length, id_or_offset, len(strokes), db_query_time, client, user_agent)
+        print('"get_strokes(%d, %d)" "#%d %.2fs" %s "%s"' % (
+            minute_length, id_or_offset, len(strokes), db_query_time, client, user_agent))
 
         full_time = time.time()
         statsd_client.incr('strokes')
@@ -268,9 +268,9 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
-        print '"get_strokes_raster(%d, %d, %d, %d)" "#%d %.2fs %.1f%%" %s "%s"' % (
+        print('"get_strokes_raster(%d, %d, %d, %d)" "#%d %.2fs %.1f%%" %s "%s"' % (
             minute_length, raster_base_length, minute_offset, region, data_size, full_time,
-            self.strokes_raster_cache.get_ratio() * 100, client, user_agent)
+            self.strokes_raster_cache.get_ratio() * 100, client, user_agent))
 
         return response
 
@@ -301,7 +301,7 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
-        print '"get_stations()" "#%d %.2fs" %s "%s"' % (len(stations), query_time - reference_time, client, user_agent)
+        print('"get_stations()" "#%d %.2fs" %s "%s"' % (len(stations), query_time - reference_time, client, user_agent))
         statsd_client.incr('stations')
         statsd_client.timing('stations', max(1, int((full_time - reference_time) * 1000)))
 
