@@ -209,7 +209,7 @@ class Blitzortung(jsonrpc.JSONRPC):
     def jsonrpc_get_strikes_around(self, longitude, latitude, minute_length, min_id=None):
         pass
 
-    def get_strokes_raster(self, minute_length, raster_baselength, minute_offset, region):
+    def get_strikes_raster(self, minute_length, raster_baselength, minute_offset, region):
 
         strike_db = blitzortung.db.strike()
 
