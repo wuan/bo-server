@@ -14,27 +14,26 @@ import time
 logger = logging.getLogger(__name__)
 
 def main():
-    # open stroke database
-    stroke_db = blitzortung.db.stroke()
+    # open strike database
+    strike_db = blitzortung.db.strike()
 
     end_time = datetime.datetime.utcnow()
     start_time = end_time - datetime.timedelta(hours=24)
     # set time range 
     time_range = blitzortung.db.query.TimeInterval(start_time, end_time)
 
-    strokes = stroke_db.select(time_range)
+    strikes = strike_db.select(time_range)
 
     crs = ccrs.PlateCarree()
 
-    
     ax = plt.axes(projection=crs)
     ax.set_extent([-20, 50, 30, 70])
 
     # Put a background image on for nice sea rendering.
     ax.stock_img()
 
-    x_coords = [stroke.get_x() for stroke in strokes]
-    y_coords = [stroke.get_y() for stroke in strokes]
+    x_coords = [strike.get_x() for strike in strikes]
+    y_coords = [strike.get_y() for strike in strikes]
     
     plt.plot(x_coords, y_coords, marker='+', linestyle='', transform=crs)
 

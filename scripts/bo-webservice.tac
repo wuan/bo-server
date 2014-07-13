@@ -132,7 +132,7 @@ class Blitzortung(jsonrpc.JSONRPC):
 
     def __init__(self):
         self.check_count = 0
-        self.strokes_raster_cache = blitzortung.cache.ObjectCache(ttl_seconds=20)
+        self.strikes_raster_cache = blitzortung.cache.ObjectCache(ttl_seconds=20)
 
     addSlash = True
 
@@ -159,7 +159,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         minute_offset = self.__force_range(id_or_offset, -24 * 60 + minute_length,
                                            0) if id_or_offset < 0 else 0
 
-        stroke_db = blitzortung.db.stroke()
+        strike_db = blitzortung.db.strike()
 
         end_time = datetime.datetime.utcnow()
         end_time = end_time.replace(tzinfo=pytz.UTC)
@@ -178,40 +178,40 @@ class Blitzortung(jsonrpc.JSONRPC):
         order = blitzortung.db.query.Order('id')
 
         reference_time = time.time()
-        strokes = stroke_db.select(time_interval, id_interval, area, order)
+        strikes = strike_db.select(time_interval, id_interval, area, order)
         query_time = time.time()
         db_query_time = (query_time - reference_time)
-        statsd_client.timing('strokes.query', max(1, int(db_query_time * 1000)))
+        statsd_client.timing('strikes.query', max(1, int(db_query_time * 1000)))
 
         reference_time = time.time()
-        stroke_array = [ [(end_time - stroke.get_timestamp()).seconds, stroke.get_x(), stroke.get_y(),
-                                           stroke.get_altitude(), stroke.get_lateral_error(), stroke.get_amplitude(),
-                                           stroke.get_station_count()] for stroke in strokes]
-        statsd_client.timing('strokes.reduce', max(1, int((time.time() - reference_time) * 1000)))
+        strike_array = [ [(end_time - strike.get_timestamp()).seconds, strike.get_x(), strike.get_y(),
+                                           strike.get_altitude(), strike.get_lateral_error(), strike.get_amplitude(),
+                                           strike.get_station_count()] for strike in strikes]
+        statsd_client.timing('strikes.reduce', max(1, int((time.time() - reference_time) * 1000)))
 
-        response = {'s': stroke_array, 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
-                    'h': stroke_db.select_histogram(minute_length, minute_offset, 5)}
+        response = {'s': strike_array, 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
+                    'h': strike_db.select_histogram(minute_length, minute_offset, 5)}
 
-        if strokes:
-            response['next'] = long(strokes[-1].get_id() + 1)
+        if strikes:
+            response['next'] = long(strikes[-1].get_id() + 1)
 
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
-        print('"get_strokes(%d, %d)" "#%d %.2fs" %s "%s"' % (
-            minute_length, id_or_offset, len(strokes), db_query_time, client, user_agent))
+        print('"get_strikes(%d, %d)" "#%d %.2fs" %s "%s"' % (
+            minute_length, id_or_offset, len(strikes), db_query_time, client, user_agent))
 
         full_time = time.time()
-        statsd_client.incr('strokes')
-        statsd_client.timing('strokes', max(1, int((full_time - reference_time) * 1000)))
+        statsd_client.incr('strikes')
+        statsd_client.timing('strikes', max(1, int((full_time - reference_time) * 1000)))
 
         return response
 
-    def jsonrpc_get_strokes_around(self, longitude, latitude, minute_length, min_id=None):
+    def jsonrpc_get_strikes_around(self, longitude, latitude, minute_length, min_id=None):
         pass
 
     def get_strokes_raster(self, minute_length, raster_baselength, minute_offset, region):
 
-        stroke_db = blitzortung.db.stroke()
+        strike_db = blitzortung.db.strike()
 
         end_time = datetime.datetime.utcnow()
         end_time = end_time.replace(tzinfo=pytz.UTC, microsecond=0)
@@ -223,23 +223,23 @@ class Blitzortung(jsonrpc.JSONRPC):
         raster_data = raster[region].get_for(raster_baselength)
 
         reference_time = time.time()
-        raster_strokes = stroke_db.select_raster(raster_data, time_interval)
-        statsd_client.timing('strokes_raster.query', max(1, int((time.time() - reference_time) * 1000)))
+        raster_strikes = strike_db.select_raster(raster_data, time_interval)
+        statsd_client.timing('strikes_raster.query', max(1, int((time.time() - reference_time) * 1000)))
 
         reference_time = time.time()
-        reduced_stroke_array = raster_strokes.to_reduced_array(end_time)
-        statsd_client.timing('strokes_raster.reduce', max(1, int((time.time() - reference_time) * 1000)))
+        reduced_strike_array = raster_strikes.to_reduced_array(end_time)
+        statsd_client.timing('strikes_raster.reduce', max(1, int((time.time() - reference_time) * 1000)))
 
         reference_time = time.time()
-        histogram = stroke_db.select_histogram(minute_length, minute_offset, 5, envelope=raster_data)
-        statsd_client.timing('strokes_raster.histogram_query', max(1, int((time.time() - reference_time) * 1000)))
+        histogram = strike_db.select_histogram(minute_length, minute_offset, 5, envelope=raster_data)
+        statsd_client.timing('strikes_raster.histogram_query', max(1, int((time.time() - reference_time) * 1000)))
 
         reference_time = time.time()
-        response = {'r': reduced_stroke_array, 'xd': round(raster_data.get_x_div(), 6), 'yd': round(raster_data.get_y_div(), 6),
+        response = {'r': reduced_strike_array, 'xd': round(raster_data.get_x_div(), 6), 'yd': round(raster_data.get_y_div(), 6),
                     'x0': round(raster_data.get_x_min(), 4), 'y1': round(raster_data.get_y_max(), 4), 'xc': raster_data.get_x_bin_count(),
                     'yc': raster_data.get_y_bin_count(), 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
                     'h': histogram}
-        statsd_client.timing('strokes_raster.pack_response', max(1, int((time.time() - reference_time) * 1000)))
+        statsd_client.timing('strikes_raster.pack_response', max(1, int((time.time() - reference_time) * 1000)))
 
         return response
 
@@ -255,22 +255,22 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         reference_time = time.time()
 
-        response = self.strokes_raster_cache.get(self.get_strokes_raster, minute_length=minute_length,
+        response = self.strikes_raster_cache.get(self.get_strikes_raster, minute_length=minute_length,
                                                  raster_baselength=raster_base_length,
                                                  minute_offset=minute_offset, region=region)
 
         full_time = time.time() - reference_time
         data_size = len(response['r'])
 
-        statsd_client.incr('strokes_raster')
-        statsd_client.timing('strokes_raster', max(1, int(full_time * 1000)))
-        statsd_client.gauge('strokes_raster.size', data_size)
+        statsd_client.incr('strikes_raster')
+        statsd_client.timing('strikes_raster', max(1, int(full_time * 1000)))
+        statsd_client.gauge('strikes_raster.size', data_size)
 
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
-        print('"get_strokes_raster(%d, %d, %d, %d)" "#%d %.2fs %.1f%%" %s "%s"' % (
+        print('"get_strikes_raster(%d, %d, %d, %d)" "#%d %.2fs %.1f%%" %s "%s"' % (
             minute_length, raster_base_length, minute_offset, region, data_size, full_time,
-            self.strokes_raster_cache.get_ratio() * 100, client, user_agent))
+            self.strikes_raster_cache.get_ratio() * 100, client, user_agent))
 
         return response
 

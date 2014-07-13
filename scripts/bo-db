@@ -80,7 +80,7 @@ parser.add_option("--endtime", dest="endtime", default="default",
                   help="end time for data retrieval", type="string")
 
 parser.add_option("--area", dest="area",
-                  help="area for which strokes are selected", type="string")
+                  help="area for which strikes are selected", type="string")
 
 parser.add_option("--tz", dest="tz", default=str(tz),
                   help="used timezone", type="string")
@@ -139,12 +139,12 @@ if options.area:
     if options.useenv:
         area = area.envelope
 
-# open stroke database
-stroke_db = blitzortung.db.stroke()
+# open strike database
+strike_db = blitzortung.db.strike()
 
 # set data parameters
-stroke_db.set_srid(options.srid)
-stroke_db.set_timezone(tz)
+strike_db.set_srid(options.srid)
+strike_db.set_timezone(tz)
 
 # set time range 
 time_range = blitzortung.db.query.TimeInterval(start_time, end_time)
@@ -159,7 +159,7 @@ raster = prepare_raster_if_applicable(options, area)
 timer = blitzortung.util.Timer()
 
 if raster:
-    raster_result = stroke_db.select_raster(raster, time_range)
+    raster_result = strike_db.select_raster(raster, time_range)
 
     select_time = timer.lap()
 
@@ -167,17 +167,17 @@ if raster:
     sys.stderr.write('received raster data in %.3f seconds\n' % (select_time))
 
 else:
-    strokes = stroke_db.select(time_range, area, order)
+    strikes = strike_db.select(time_range, area, order)
 
     select_time = timer.lap()
 
     precision_factor = math.pow(10.0, options.precision)
 
-    for stroke in strokes:
-        location_x = round(stroke.get_x() * precision_factor) / precision_factor
-        location_y = round(stroke.get_y() * precision_factor) / precision_factor
-        print(str(stroke))
+    for strike in strikes:
+        location_x = round(strike.get_x() * precision_factor) / precision_factor
+        location_y = round(strike.get_y() * precision_factor) / precision_factor
+        print(str(strike))
 
-    sys.stderr.write('received %d strokes in %.3f seconds\n' % (len(strokes), select_time))
+    sys.stderr.write('received %d strikes in %.3f seconds\n' % (len(strikes), select_time))
 
 
