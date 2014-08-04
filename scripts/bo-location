@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf8 -*-
 
+from __future__ import print_function
 import sys, os, zipfile
 import urllib
 import math
@@ -16,7 +17,7 @@ import blitzortung
 def getCountry(country_id):
     filename = country_id.upper() + '.zip'
     if not os.path.exists(filename):
-        print "downloading", filename
+        print("downloading", filename)
         url = 'http://download.geonames.org/export/dump/' + filename
         (filename, _) = urllib.urlretrieve(url, filename)
     return filename
@@ -52,7 +53,7 @@ if options.doimport:
     for country_id in country_ids:
         filename = getCountry(country_id)
 
-        print filename
+        print(filename)
 
         zip_file = zipfile.ZipFile(filename)
 
@@ -84,7 +85,7 @@ else:
 
     # display resulting locations
     for location in locations:
-        print u"%s %.1fkm %.1f°" % (location['name'], location['distance'] / 1000, location['azimuth'] / math.pi * 180)
+        print(u"%s %.1fkm %.1f°" % (location['name'], location['distance'] / 1000, location['azimuth'] / math.pi * 180))
 
     # write out statistical information
 

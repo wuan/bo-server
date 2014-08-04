@@ -9,8 +9,8 @@ import logging
 import time
 import statsd
 
-import blitzortung.db
 import blitzortung.dataimport
+import blitzortung.db
 
 logger = logging.getLogger(__name__)
 
@@ -23,37 +23,37 @@ def timestamp_is_newer_than(timestamp, latest_time):
     return timestamp and timestamp > latest_time and timestamp - latest_time != datetime.timedelta()
 
 
-def import_strokes_for(region, start_time):
-    stroke_db = blitzortung.db.stroke()
-    latest_time = stroke_db.get_latest_time(region)
+def import_strikes_for(region, start_time):
+    strike_db = blitzortung.db.strike()
+    latest_time = strike_db.get_latest_time(region)
     if not latest_time:
         latest_time = start_time
 
     reference_time = time.time()
-    stroke_source = blitzortung.dataimport.strokes()
-    strokes = stroke_source.get_strokes_since(latest_time, region=region)
+    strike_source = blitzortung.dataimport.strikes()
+    strikes = strike_source.get_strikes_since(latest_time, region=region)
     query_time = time.time()
 
-    for stroke in strokes:
-        stroke_db.insert(stroke, region)
+    for strike in strikes:
+        strike_db.insert(strike, region)
 
-    stroke_db.commit()
+    strike_db.commit()
 
     insert_time = time.time()
-    stat_name = "strokes.%d" % region
+    stat_name = "strikes.%d" % region
     statsd_client.incr(stat_name)
-    statsd_client.gauge(stat_name, len(strokes))
+    statsd_client.gauge(stat_name, len(strikes))
     statsd_client.timing(stat_name + ".get", max(1, int((query_time - reference_time) * 1000)))
     statsd_client.timing(stat_name + ".insert", max(1, int((insert_time - query_time) * 1000)))
 
-    logger.info("imported %d strokes for region %d" % (len(strokes), region))
+    logger.info("imported %d strikes for region %d" % (len(strikes), region))
 
 
-def import_strokes(regions, start_time):
+def import_strikes(regions, start_time):
     # TODO add file based lock around import call
 
     for region in regions:
-        import_strokes_for(region, start_time)
+        import_strikes_for(region, start_time)
 
 
 def import_station_info_for(region):
@@ -144,5 +144,5 @@ if __name__ == "__main__":
             tzinfo=pytz.UTC) if options.startdate else None
 
         regions = [1, 2, 3]
-        import_strokes(regions, start_time)
+        import_strikes(regions, start_time)
         import_station_info(regions)
