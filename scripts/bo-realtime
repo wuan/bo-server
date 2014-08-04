@@ -1,0 +1,39 @@
+#!/usr/bin/env python
+# -*- coding: utf8 -*-
+
+import time
+import datetime
+import pytz
+from requests import Session
+import pandas as pd
+
+import blitzortung
+import blitzortung.builder
+
+url_format = "http://www.lightningmaps.org/live/?r=%d&l=%d"
+
+region = 1
+current_id = 0
+
+stroke_builder = blitzortung.builder.Stroke()
+session = Session()
+while True:
+    response = session.get(url_format % (region, current_id), stream=True, timeout=20)
+
+    if response.status_code == 200:
+        result = response.json()
+
+        if 's' in result:
+            current_id = result['s']
+            current_time = pd.Timestamp(datetime.datetime.fromtimestamp(result['t'], pytz.UTC))
+            stroke_data = result['d']
+            for index, entry in enumerate(stroke_data):
+                stroke_builder.set_timestamp(current_time + pd.datetools.Nano(entry[0] * 1e9))
+                stroke_builder.set_x(entry[2])
+                stroke_builder.set_y(entry[1])
+                stroke_builder.set_lateral_error(entry[4])
+                stroke = stroke_builder.build()
+                print(stroke, ("%.2f" % entry[0] if index == len(stroke_data)-1 else ""))
+            time.sleep(5)
+        else:
+            print("skipped")
