@@ -176,7 +176,7 @@ else:
     for strike in strikes:
         location_x = round(strike.get_x() * precision_factor) / precision_factor
         location_y = round(strike.get_y() * precision_factor) / precision_factor
-        #print(str(strike))
+        print(str(strike))
 
     sys.stderr.write('received %d strikes in %.3f seconds\n' % (len(strikes), select_time))
 
