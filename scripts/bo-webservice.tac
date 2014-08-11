@@ -2,14 +2,19 @@
 
 from __future__ import division, print_function
 
-from twisted.internet import epollreactor, defer
-from twisted.internet.error import ReactorAlreadyInstalledError
-from txjsonrpc.web.jsonrpc import with_request
+try:
+    from twisted.internet import epollreactor as reactor
+except ImportError:
+    from twisted.internet import kqreactor as reactor
 
 try:
-    epollreactor.install()
+    reactor.install()
 except ReactorAlreadyInstalledError:
     pass
+
+from twisted.internet import defer
+from twisted.internet.error import ReactorAlreadyInstalledError
+from txjsonrpc.web.jsonrpc import with_request
 
 from zope.interface import Interface, implements
 from twisted.cred import portal, checkers, credentials, error as credential_error
@@ -38,10 +43,15 @@ import blitzortung.geom
 import blitzortung.db
 import blitzortung.db.query
 
+import sys
+
+if sys.version > '3':
+    long = int
+
 WGS84 = pyproj.Proj(init='epsg:4326')
-UTM_EU = pyproj.Proj(init='epsg:32633')   # UTM 33 N / WGS84
+UTM_EU = pyproj.Proj(init='epsg:32633')  # UTM 33 N / WGS84
 UTM_USA = pyproj.Proj(init='epsg:32614')  # UTM 14 N / WGS84
-UTM_OC = pyproj.Proj(init='epsg:32755')   # UTM 55 S / WGS84
+UTM_OC = pyproj.Proj(init='epsg:32755')  # UTM 55 S / WGS84
 
 
 class PasswordDictChecker(object):
@@ -96,7 +106,8 @@ class RasterDataFactory(object):
 
         self.raster_data = {}
 
-    def fix_max(self, minimum, maximum, delta):
+    @staticmethod
+    def fix_max(minimum, maximum, delta):
         return minimum + math.floor((maximum - minimum) / delta) * delta
 
     def get_for(self, base_length):
@@ -136,10 +147,12 @@ class Blitzortung(jsonrpc.JSONRPC):
 
     addSlash = True
 
-    def __force_min(self, number, min_number):
+    @staticmethod
+    def __force_min(number, min_number):
         return max(min_number, number)
 
-    def __force_max(self, number, max_number):
+    @staticmethod
+    def __force_max(number, max_number):
         return min(max_number, number)
 
     def __force_range(self, number, min_number, max_number):
@@ -184,9 +197,16 @@ class Blitzortung(jsonrpc.JSONRPC):
         statsd_client.timing('strikes.query', max(1, int(db_query_time * 1000)))
 
         reference_time = time.time()
-        strike_array = [ [(end_time - strike.get_timestamp()).seconds, strike.get_x(), strike.get_y(),
-                                           strike.get_altitude(), strike.get_lateral_error(), strike.get_amplitude(),
-                                           strike.get_station_count()] for strike in strikes]
+        strike_array = tuple(
+            tuple(
+                (end_time - strike.get_timestamp()).seconds,
+                strike.get_x(),
+                strike.get_y(),
+                strike.get_altitude(),
+                strike.get_lateral_error(),
+                strike.get_amplitude(),
+                strike.get_station_count()
+            ) for strike in strikes)
         statsd_client.timing('strikes.reduce', max(1, int((time.time() - reference_time) * 1000)))
 
         response = {'s': strike_array, 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
@@ -235,8 +255,10 @@ class Blitzortung(jsonrpc.JSONRPC):
         statsd_client.timing('strikes_raster.histogram_query', max(1, int((time.time() - reference_time) * 1000)))
 
         reference_time = time.time()
-        response = {'r': reduced_strike_array, 'xd': round(raster_data.get_x_div(), 6), 'yd': round(raster_data.get_y_div(), 6),
-                    'x0': round(raster_data.get_x_min(), 4), 'y1': round(raster_data.get_y_max(), 4), 'xc': raster_data.get_x_bin_count(),
+        response = {'r': reduced_strike_array, 'xd': round(raster_data.get_x_div(), 6),
+                    'yd': round(raster_data.get_y_div(), 6),
+                    'x0': round(raster_data.get_x_min(), 4), 'y1': round(raster_data.get_y_max(), 4),
+                    'xc': raster_data.get_x_bin_count(),
                     'yc': raster_data.get_y_bin_count(), 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
                     'h': histogram}
         statsd_client.timing('strikes_raster.pack_response', max(1, int((time.time() - reference_time) * 1000)))
@@ -283,19 +305,19 @@ class Blitzortung(jsonrpc.JSONRPC):
         query_time = time.time()
         statsd_client.timing('stations.query', max(1, int((query_time - reference_time) * 1000)))
 
-        station_array = []
-        for station in stations:
-            station_data = [station.get_number(), station.get_name(), station.get_country(), station.get_x(),
-                            station.get_y()]
+        station_data = tuple(
+            tuple(
+                station.get_number(),
+                station.get_name(),
+                station.get_country(),
+                station.get_x(),
+                station.get_y(),
+                station.get_timestamp().strftime("%Y%m%dT%H:%M:%S.%f")[:-3] if station.get_timestamp() else ''
+            )
+            for station in stations
+        )
 
-            if station.get_timestamp():
-                station_data.append(station.get_timestamp().strftime("%Y%m%dT%H:%M:%S.%f")[:-3])
-            else:
-                station_data.append('')
-
-            station_array.append(station_data)
-
-        response = {'stations': station_array}
+        response = {'stations': station_data}
 
         full_time = time.time()
 
@@ -318,7 +340,9 @@ users = {'test': 'test'}
 
 # Set up the application and the JSON-RPC resource.
 application = service.Application("Blitzortung.org JSON-RPC Server")
-logfile = DailyLogFile("webservice.log", "/var/log/blitzortung")
+log_directory = "/var/log/blitzortung"
+log_directory = "./"
+logfile = DailyLogFile("webservice.log", log_directory)
 application.setComponent(ILogObserver, FileLogObserver(logfile).emit)
 root = Blitzortung()
 
@@ -344,7 +368,7 @@ portal = portal.Portal(PublicHTMLRealm(), [checker])
 resource = HTTPAuthSessionWrapper(portal, [credentialFactory])
 
 # With the wrapped root, we can set up the server as usual.
-#site = server.Site(resource=wrappedRoot)
+# site = server.Site(resource=wrappedRoot)
 config = blitzortung.config.config()
 site = server.Site(root)
 site.displayTracebacks = False

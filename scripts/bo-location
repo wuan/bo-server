@@ -2,8 +2,10 @@
 # -*- coding: utf8 -*-
 
 from __future__ import print_function
-import sys, os, zipfile
-import urllib
+import sys
+import os
+import zipfile
+from requests import Session
 import math
 
 from optparse import OptionParser
@@ -14,13 +16,16 @@ import shapely.wkt
 import blitzortung
 
 
-def getCountry(country_id):
-    filename = country_id.upper() + '.zip'
-    if not os.path.exists(filename):
-        print("downloading", filename)
-        url = 'http://download.geonames.org/export/dump/' + filename
-        (filename, _) = urllib.urlretrieve(url, filename)
-    return filename
+def get_country_data(session, country_id):
+    target_file_name = country_id.upper() + '.zip'
+    if not os.path.exists(target_file_name):
+        print("downloading", target_file_name)
+        url = 'http://download.geonames.org/export/dump/' + target_file_name
+        response = session.get(url)
+        with open(target_file_name, 'wb') as target_file:
+            for chunk in response.iter_content(1024):
+                target_file.write(chunk)
+    return target_file_name
 
 
 country_ids = ['CH', 'DE', 'FR', 'SE', 'ES', 'NO', 'TR', 'BA', 'PL', 'IT', 'FI', 'AT', 'GB', 'RS', 'RO', 'PT', 'HU',
@@ -50,17 +55,18 @@ location_db = blitzortung.db.location()
 if options.doimport:
     location_db.delete_all()
 
+    session = Session()
+
     for country_id in country_ids:
-        filename = getCountry(country_id)
+        archive_file_name = get_country_data(session, country_id)
 
-        print(filename)
+        print('insert', archive_file_name)
 
-        zip_file = zipfile.ZipFile(filename)
+        zip_file = zipfile.ZipFile(archive_file_name)
 
-        data = zip_file.open(country_id.upper() + '.txt')
-
-        for line in data.readlines():
-            location_db.insert(line)
+        with zip_file.open(country_id.upper() + '.txt') as input_file:
+            for line in input_file:
+                location_db.insert(line.decode('utf8'))
 
         location_db.commit()
 

@@ -2,7 +2,11 @@
 # -*- coding: utf8 -*-
 
 from __future__ import print_function
+import sys
 import blitzortung
+
+if sys.version > '3':
+    unicode = str
 
 
 def get_stations():
