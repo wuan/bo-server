@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 from __future__ import division, print_function
+from twisted.internet.defer import gatherResults
+
+from twisted.python import log
 
 try:
     from twisted.internet import epollreactor as reactor
@@ -42,6 +45,9 @@ import blitzortung.cache
 import blitzortung.geom
 import blitzortung.db
 import blitzortung.db.query
+import blitzortung_server
+
+from blitzortung_server.db import compile_strikes_result
 
 import sys
 
@@ -141,7 +147,9 @@ class Blitzortung(jsonrpc.JSONRPC):
     An example object to be published.
     """
 
-    def __init__(self):
+    def __init__(self, connection_pool):
+        self.connection_pool = connection_pool
+        self.query_builder = blitzortung_server.QueryBuilder()
         self.check_count = 0
         self.strikes_raster_cache = blitzortung.cache.ObjectCache(ttl_seconds=20)
 
@@ -166,14 +174,7 @@ class Blitzortung(jsonrpc.JSONRPC):
     def jsonrpc_get_strokes(self, request, minute_length, id_or_offset=0):
         return self.jsonrpc_get_strikes(request, minute_length, id_or_offset)
 
-    @with_request
-    def jsonrpc_get_strikes(self, request, minute_length, id_or_offset=0):
-        minute_length = self.__force_range(minute_length, 0, 24 * 60)
-        minute_offset = self.__force_range(id_or_offset, -24 * 60 + minute_length,
-                                           0) if id_or_offset < 0 else 0
-
-        strike_db = blitzortung.db.strike()
-
+    def create_strike_query(self, id_or_offset, minute_length, minute_offset):
         end_time = datetime.datetime.utcnow()
         end_time = end_time.replace(tzinfo=pytz.UTC)
         end_time = end_time.replace(microsecond=0)
@@ -188,62 +189,70 @@ class Blitzortung(jsonrpc.JSONRPC):
             id_interval = None
 
         area = None
+
         order = blitzortung.db.query.Order('id')
+        query = self.query_builder.select_strokes_query(time_interval, id_interval, area, order)
 
+        return query, end_time
+
+    @with_request
+    def jsonrpc_get_strikes(self, request, minute_length, id_or_offset=0):
+        minute_length = self.__force_range(minute_length, 0, 24 * 60)
+        minute_offset = self.__force_range(id_or_offset, -24 * 60 + minute_length,
+                                           0) if id_or_offset < 0 else 0
+
+        query, end_time = self.create_strike_query(id_or_offset, minute_length, minute_offset)
         reference_time = time.time()
-        strikes = strike_db.select(time_interval, id_interval, area, order)
-        query_time = time.time()
-        db_query_time = (query_time - reference_time)
-        statsd_client.timing('strikes.query', max(1, int(db_query_time * 1000)))
 
-        reference_time = time.time()
-        strike_array = tuple(
-            tuple(
-                (end_time - strike.get_timestamp()).seconds,
-                strike.get_x(),
-                strike.get_y(),
-                strike.get_altitude(),
-                strike.get_lateral_error(),
-                strike.get_amplitude(),
-                strike.get_station_count()
-            ) for strike in strikes)
-        statsd_client.timing('strikes.reduce', max(1, int((time.time() - reference_time) * 1000)))
+        strikes_query = self.connection_pool.runQuery(str(query), query.get_parameters())
+        strikes_query.addCallback(blitzortung_server.strike_result_build, end_time=end_time,
+                                   statsd_client=statsd_client, reference_time=reference_time)
 
-        response = {'s': strike_array, 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
-                    'h': strike_db.select_histogram(minute_length, minute_offset, 5)}
+        histogram_query = self.connection_pool.runQuery("select id from strikes order by id desc limit 1")
 
-        if strikes:
-            response['next'] = long(strikes[-1].get_id() + 1)
+        query = gatherResults([strikes_query, histogram_query], consumeErrors=True)
+        query.addCallback(compile_strikes_result, end_time=end_time)
+        query.addErrback(log.err)
 
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
-        print('"get_strikes(%d, %d)" "#%d %.2fs" %s "%s"' % (
-            minute_length, id_or_offset, len(strikes), db_query_time, client, user_agent))
+        print('"get_strikes(%d, %d)" %s "%s"' % ( minute_length, id_or_offset, client, user_agent))
 
         full_time = time.time()
         statsd_client.incr('strikes')
         statsd_client.timing('strikes', max(1, int((full_time - reference_time) * 1000)))
 
-        return response
+        return query
 
     def jsonrpc_get_strikes_around(self, longitude, latitude, minute_length, min_id=None):
         pass
 
-    def get_strikes_raster(self, minute_length, raster_baselength, minute_offset, region):
-
-        strike_db = blitzortung.db.strike()
-
+    def create_raster_query(self, minute_length, minute_offset, raster_data):
         end_time = datetime.datetime.utcnow()
         end_time = end_time.replace(tzinfo=pytz.UTC, microsecond=0)
         end_time += datetime.timedelta(minutes=minute_offset)
-
         start_time = end_time - datetime.timedelta(minutes=minute_length)
         time_interval = blitzortung.db.query.TimeInterval(start_time, end_time)
+        query = blitzortung.db.query.RasterQuery(raster_data)
+        query.add_parameters([time_interval])
+        return query, time_interval
+
+    def get_strikes_raster(self, minute_length, raster_baselength, minute_offset, region):
 
         raster_data = raster[region].get_for(raster_baselength)
+        query, time_interval = self.create_raster_query(minute_length, minute_offset, raster_data)
+
+        raster_query = self.connection_pool.runQuery(str(query), query.get_parameters())
+        raster_query.addCallback(blitzortung_server.strike_result_build, end_time=time_interval.get_end(),
+                                   statsd_client=statsd_client, reference_time=reference_time)
+
+        histogram_query = self.connection_pool.runQuery("select id from strikes order by id desc limit 1")
+
+        query = gatherResults([raster_query, histogram_query], consumeErrors=True)
+        query.addCallback(compile_strikes_result, end_time=time_interval.get_end())
+        query.addErrback(log.err)
 
         reference_time = time.time()
-        raster_strikes = strike_db.select_raster(raster_data, time_interval)
         statsd_client.timing('strikes_raster.query', max(1, int((time.time() - reference_time) * 1000)))
 
         reference_time = time.time()
@@ -306,7 +315,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         statsd_client.timing('stations.query', max(1, int((query_time - reference_time) * 1000)))
 
         station_data = tuple(
-            tuple(
+            (
                 station.get_number(),
                 station.get_name(),
                 station.get_country(),
@@ -340,11 +349,12 @@ users = {'test': 'test'}
 
 # Set up the application and the JSON-RPC resource.
 application = service.Application("Blitzortung.org JSON-RPC Server")
-log_directory = "/var/log/blitzortung"
-log_directory = "./"
-logfile = DailyLogFile("webservice.log", log_directory)
-application.setComponent(ILogObserver, FileLogObserver(logfile).emit)
-root = Blitzortung()
+#log_directory = "/var/log/blitzortung"
+#log_directory = "./"
+#logfile = DailyLogFile("webservice.log", log_directory)
+#application.setComponent(ILogObserver, FileLogObserver(logfile).emit)
+connection_pool = blitzortung_server.create_connection_pool()
+root = Blitzortung(connection_pool)
 
 credentialFactory = DigestCredentialFactory("md5", "blitzortung.org")
 # Define the credential checker the application will be using and wrap the JSON-RPC resource.
