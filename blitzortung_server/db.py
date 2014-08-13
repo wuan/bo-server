@@ -13,13 +13,31 @@ import blitzortung.db.query
 
 
 def connection_factory(*args, **kwargs):
-    print("create connection", " ".join(args))
     kwargs['connection_factory'] = psycopg2.extras.DictConnection
     return psycopg2.connect(*args, **kwargs)
 
 
+class LoggingDetector(reconnection.DeadConnectionDetector):
+    def startReconnecting(self, f):
+        print('[*] database connection is down (error: %r)' % f.value)
+        return reconnection.DeadConnectionDetector.startReconnecting(self, f)
+
+    def reconnect(self):
+        print('[*] reconnecting...')
+        return reconnection.DeadConnectionDetector.reconnect(self)
+
+    def connectionRecovered(self):
+        print('[*] connection recovered')
+        return reconnection.DeadConnectionDetector.connectionRecovered(self)
+
+
 class DictConnection(Connection):
     connectionFactory = staticmethod(connection_factory)
+
+    def __init__(self, reactor=None, cooperator=None, detector=None):
+        if not detector:
+            detector = LoggingDetector()
+        super(DictConnection, self).__init__(reactor, cooperator, detector)
 
 
 class DictConnectionPool(ConnectionPool):
@@ -39,20 +57,6 @@ def create_connection_pool():
     d = connection_pool.start()
     d.addErrback(log.err)
     return connection_pool
-
-
-class LoggingDetector(reconnection.DeadConnectionDetector):
-    def startReconnecting(self, f):
-        print('[*] database connection is down (error: %r)' % f.value)
-        return reconnection.DeadConnectionDetector.startReconnecting(self, f)
-
-    def reconnect(self):
-        print('[*] reconnecting...')
-        return reconnection.DeadConnectionDetector.reconnect(self)
-
-    def connectionRecovered(self):
-        print('[*] connection recovered')
-        return reconnection.DeadConnectionDetector.connectionRecovered(self)
 
 
 class QueryBuilder(object):
