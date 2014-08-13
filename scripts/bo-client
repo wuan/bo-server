@@ -1,0 +1,85 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+import datetime
+import requests
+import json
+import time
+import aniso8601
+
+def get_strikes(time_interval=60):
+    next_index = 0
+
+    session = requests.Session()
+
+    while True:
+	request = {
+	    'jsonrpc': 2.0,
+	    'method':'get_strikes',
+	    'params': [time_interval, next_index],
+	    'id':123
+	}
+
+        response = session.post('http://localhost:7080/', data=json.dumps(request)).json()
+
+        if 'result' in response:
+	    result = response['result']
+
+	    print(result.keys())
+	    strikes = result['s']
+	    reference_time = aniso8601.parse_datetime(result['t'])
+
+	    for strike in strikes:
+	        print(reference_time - datetime.timedelta(seconds=strike[0]), strike[1], strike[2])
+
+	    if 'next' in result:
+		next_index = result['next']
+
+	time.sleep(1)
+
+def get_strikes_grid(time_interval=60, grid_baselength=5000, minute_offset=0, region=1):
+    next_index = 0
+
+    session = requests.Session()
+
+    request = {
+	'jsonrpc': 2.0,
+	'method':'get_strikes_grid',
+	'params': [time_interval, grid_baselength, minute_offset, region],
+	'id':123
+    }
+
+    response = session.post('http://localhost:7080/', data=json.dumps(request)).json()
+    
+    if 'result' in response:
+	result = response['result']
+
+	if result:
+	    print(result)
+#grid_data = result['r']
+#	    reference_time = aniso8601.parse_datetime(result['t'])
+
+#	    for grid_element in grid_data:
+#		print(grid_element[0], grid_element[1], grid_element[2], reference_time + datetime.timedelta(seconds=grid_element[3]))
+
+	else:
+	    print("no result!", response)
+
+def check():
+    session = requests.Session()
+
+    request = {
+	'jsonrpc': 2.0,
+	'method':'check'
+    }
+
+    response = requests.post('http://localhost:7080/', data=json.dumps(request)).json()
+
+    print(response)
+
+get_strikes_grid()
+#get_strikes()
+#check()
+
+
+

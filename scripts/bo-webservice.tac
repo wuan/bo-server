@@ -15,6 +15,7 @@ try:
 except ReactorAlreadyInstalledError:
     pass
 
+from twisted.internet import reactor as the_reactor
 from twisted.internet import defer
 from twisted.internet.error import ReactorAlreadyInstalledError
 from txjsonrpc.web.jsonrpc import with_request
@@ -102,7 +103,7 @@ class TestRealm(object):
             raise KeyError('none of the requested interfaces is supported')
 
 
-class RasterDataFactory(object):
+class GridDataFactory(object):
     def __init__(self, min_lon, max_lon, min_lat, max_lat, coord_sys):
         self.min_lon = min_lon
         self.max_lon = max_lon
@@ -110,14 +111,14 @@ class RasterDataFactory(object):
         self.max_lat = max_lat
         self.coord_sys = coord_sys
 
-        self.raster_data = {}
+        self.grid_data = {}
 
     @staticmethod
     def fix_max(minimum, maximum, delta):
         return minimum + math.floor((maximum - minimum) / delta) * delta
 
     def get_for(self, base_length):
-        if base_length not in self.raster_data:
+        if base_length not in self.grid_data:
             ref_lon = (self.min_lon + self.max_lon) / 2.0
             ref_lat = (self.min_lat + self.max_lat) / 2.0
 
@@ -130,17 +131,85 @@ class RasterDataFactory(object):
             max_lon = self.fix_max(self.min_lon, self.max_lon, delta_lon)
             max_lat = self.fix_max(self.min_lat, self.max_lat, delta_lat)
 
-            self.raster_data[base_length] = blitzortung.geom.Raster(self.min_lon, max_lon, self.min_lat, max_lat,
-                                                                    delta_lon, delta_lat,
-                                                                    blitzortung.geom.Geometry.DefaultSrid)
+            self.grid_data[base_length] = blitzortung.geom.Grid(self.min_lon, max_lon, self.min_lat, max_lat,
+                                                                delta_lon, delta_lat,
+                                                                blitzortung.geom.Geometry.DefaultSrid)
 
-        return self.raster_data[base_length]
+        return self.grid_data[base_length]
 
 
-raster = {1: RasterDataFactory(-15, 40, 32, 70, UTM_EU),
-          2: RasterDataFactory(110, 180, -50, 0, UTM_OC),
-          3: RasterDataFactory(-140, -50, 10, 60, UTM_USA)}
+grid = {1: GridDataFactory(-15, 40, 32, 70, UTM_EU),
+        2: GridDataFactory(110, 180, -50, 0, UTM_OC),
+        3: GridDataFactory(-140, -50, 10, 60, UTM_USA)}
 
+
+class WrappedDeferred(defer.Deferred):
+
+    def callback(self, result):
+        print("callback(", result, ")")
+        defer.Deferred.callback(self, result)
+
+    def chainDeferred(self, d):
+        print("chainDeferred", d)
+        return defer.Deferred.chainDeferred(self, d)
+
+    def cancel(self):
+        print("cancel()")
+        defer.Deferred.cancel(self)
+
+    def _startRunCallbacks(self, result):
+        print("_startRunCallbacks()")
+        defer.Deferred._startRunCallbacks(self, result)
+
+    def addBoth(self, callback, *args, **kw):
+        print("addBoth()")
+        return defer.Deferred.addBoth(self, callback, *args, **kw)
+
+    def _continuation(self):
+        print("_continuation()")
+        return defer.Deferred._continuation(self)
+
+    def errback(self, fail=None):
+        print("errback()")
+        defer.Deferred.errback(self, fail)
+
+    def pause(self):
+        print("pause()")
+        defer.Deferred.pause(self)
+
+    def _runCallbacks(self):
+        result = self.getResult()
+        for callback in self.callbacks:
+            pass
+            #print("    ", callback)
+        defer.Deferred._runCallbacks(self)
+        print("  _runCallbacks()", self.getResult())
+        #if result:
+        #    self.result = result
+
+    def addCallback(self, callback, *args, **kw):
+        print("addCallback()", callback, args, kw, self.getResult())
+        return defer.Deferred.addCallback(self, callback, *args, **kw)
+
+    def addCallbacks(self, callback, errback=None, callbackArgs=None, callbackKeywords=None, errbackArgs=None,
+                     errbackKeywords=None):
+        print("addCallbacks()", callback, self.getResult())
+        return defer.Deferred.addCallbacks(self, callback, errback, callbackArgs, callbackKeywords, errbackArgs,
+                                           errbackKeywords)
+
+    def addErrback(self, errback, *args, **kw):
+        print("addErrback()", errback, args, kw, self.getResult())
+        return defer.Deferred.addErrback(self, errback, *args, **kw)
+
+    def unpause(self):
+        print("unpause()")
+        defer.Deferred.unpause(self)
+
+    def getResult(self):
+        if hasattr(self, 'result'):
+            return self.result
+        else:
+            return None
 
 class Blitzortung(jsonrpc.JSONRPC):
     """
@@ -149,9 +218,10 @@ class Blitzortung(jsonrpc.JSONRPC):
 
     def __init__(self, connection_pool):
         self.connection_pool = connection_pool
-        self.query_builder = blitzortung_server.QueryBuilder()
+        self.strike_query_builder = blitzortung.db.query_builder.Strike()
         self.check_count = 0
-        self.strikes_raster_cache = blitzortung.cache.ObjectCache(ttl_seconds=20)
+        self.strikes_grid_cache = blitzortung.cache.ObjectCache(ttl_seconds=20)
+        self.test = None
 
     addSlash = True
 
@@ -174,26 +244,21 @@ class Blitzortung(jsonrpc.JSONRPC):
     def jsonrpc_get_strokes(self, request, minute_length, id_or_offset=0):
         return self.jsonrpc_get_strikes(request, minute_length, id_or_offset)
 
-    def create_strike_query(self, id_or_offset, minute_length, minute_offset):
-        end_time = datetime.datetime.utcnow()
-        end_time = end_time.replace(tzinfo=pytz.UTC)
-        end_time = end_time.replace(microsecond=0)
-        end_time += datetime.timedelta(minutes=minute_offset)
+    def create_strikes_query(self, id_or_offset, minute_length, minute_offset, reference_time):
+        query, end_time = self.create_strike_query(id_or_offset, minute_length, minute_offset)
+        strikes_query = self.connection_pool.runQuery(str(query), query.get_parameters())
+        strikes_query.addCallback(blitzortung_server.strike_result_build, end_time=end_time,
+                                  statsd_client=statsd_client, reference_time=reference_time)
+        return strikes_query, end_time
 
-        start_time = end_time - datetime.timedelta(minutes=minute_length)
-        time_interval = blitzortung.db.query.TimeInterval(start_time, end_time)
-
-        if id_or_offset > 0:
-            id_interval = blitzortung.db.query.IdInterval(id_or_offset)
-        else:
-            id_interval = None
-
-        area = None
-
-        order = blitzortung.db.query.Order('id')
-        query = self.query_builder.select_strokes_query(time_interval, id_interval, area, order)
-
-        return query, end_time
+    def create_histogram_query(self, minute_length, minute_offset):
+        reference_time = time.time()
+        query = self.strike_query_builder.histogram_query(blitzortung.db.table.Strike.TABLE_NAME, minute_length,
+                                                          minute_offset, 5)
+        histogram_query = self.connection_pool.runQuery(str(query), query.get_parameters())
+        histogram_query.addCallback(blitzortung_server.histogram_result_build, minutes=minute_length, bin_size=5,
+                                    reference_time=reference_time)
+        return histogram_query
 
     @with_request
     def jsonrpc_get_strikes(self, request, minute_length, id_or_offset=0):
@@ -201,14 +266,12 @@ class Blitzortung(jsonrpc.JSONRPC):
         minute_offset = self.__force_range(id_or_offset, -24 * 60 + minute_length,
                                            0) if id_or_offset < 0 else 0
 
-        query, end_time = self.create_strike_query(id_or_offset, minute_length, minute_offset)
         reference_time = time.time()
 
-        strikes_query = self.connection_pool.runQuery(str(query), query.get_parameters())
-        strikes_query.addCallback(blitzortung_server.strike_result_build, end_time=end_time,
-                                   statsd_client=statsd_client, reference_time=reference_time)
+        strikes_query, end_time = self.create_strikes_query(id_or_offset, minute_length, minute_offset, reference_time)
 
-        histogram_query = self.connection_pool.runQuery("select id from strikes order by id desc limit 1")
+        minute_offset = -id_or_offset if id_or_offset < 0 else 0
+        histogram_query = self.create_histogram_query(minute_length, minute_offset)
 
         query = gatherResults([strikes_query, histogram_query], consumeErrors=True)
         query.addCallback(compile_strikes_result, end_time=end_time)
@@ -219,89 +282,124 @@ class Blitzortung(jsonrpc.JSONRPC):
         print('"get_strikes(%d, %d)" %s "%s"' % ( minute_length, id_or_offset, client, user_agent))
 
         full_time = time.time()
-        statsd_client.incr('strikes')
-        statsd_client.timing('strikes', max(1, int((full_time - reference_time) * 1000)))
+        statsd_client.incr(blitzortung.db.table.Strike.TABLE_NAME)
+        statsd_client.timing(blitzortung.db.table.Strike.TABLE_NAME, max(1, int((full_time - reference_time) * 1000)))
 
         return query
+
+    def create_time_interval(self, minute_length, minute_offset):
+        end_time = datetime.datetime.utcnow()
+        end_time = end_time.replace(tzinfo=pytz.UTC)
+        end_time = end_time.replace(microsecond=0)
+        end_time += datetime.timedelta(minutes=minute_offset)
+        start_time = end_time - datetime.timedelta(minutes=minute_length)
+        time_interval = blitzortung.db.query.TimeInterval(start_time, end_time)
+        return time_interval
+
+    def create_strike_query(self, id_or_offset, minute_length, minute_offset):
+        time_interval = self.create_time_interval(minute_length, minute_offset)
+
+        if id_or_offset > 0:
+            id_interval = blitzortung.db.query.IdInterval(id_or_offset)
+        else:
+            id_interval = None
+
+        order = blitzortung.db.query.Order('id')
+
+        return self.strike_query_builder.select_query(blitzortung.db.table.Strike.TABLE_NAME,
+                                                      blitzortung.geom.Geometry.DefaultSrid, time_interval,
+                                                      id_interval, order), time_interval.get_end()
 
     def jsonrpc_get_strikes_around(self, longitude, latitude, minute_length, min_id=None):
         pass
 
-    def create_raster_query(self, minute_length, minute_offset, raster_data):
-        end_time = datetime.datetime.utcnow()
-        end_time = end_time.replace(tzinfo=pytz.UTC, microsecond=0)
-        end_time += datetime.timedelta(minutes=minute_offset)
-        start_time = end_time - datetime.timedelta(minutes=minute_length)
-        time_interval = blitzortung.db.query.TimeInterval(start_time, end_time)
-        query = blitzortung.db.query.RasterQuery(raster_data)
-        query.add_parameters([time_interval])
-        return query, time_interval
+    def create_strikes_grid_query(self, grid_parameters, minute_length, minute_offset, reference_time):
+        time_interval = self.create_time_interval(minute_length, minute_offset)
 
-    def get_strikes_raster(self, minute_length, raster_baselength, minute_offset, region):
+        query = self.strike_query_builder.grid_query(blitzortung.db.table.Strike.TABLE_NAME, grid_parameters,
+                                                     time_interval)
+        grid_query = self.connection_pool.runQuery(str(query), query.get_parameters())
+        grid_query.addCallback(self.build_grid_result, end_time=time_interval.get_end(),
+                               statsd_client=statsd_client, reference_time=reference_time,
+                               grid_parameters=grid_parameters)
+        grid_query.addErrback(log.err)
+        return grid_query, time_interval.get_end()
 
-        raster_data = raster[region].get_for(raster_baselength)
-        query, time_interval = self.create_raster_query(minute_length, minute_offset, raster_data)
+    def get_strikes_grid(self, minute_length, grid_baselength, minute_offset, region):
 
-        raster_query = self.connection_pool.runQuery(str(query), query.get_parameters())
-        raster_query.addCallback(blitzortung_server.strike_result_build, end_time=time_interval.get_end(),
-                                   statsd_client=statsd_client, reference_time=reference_time)
+        grid_parameters = grid[region].get_for(grid_baselength)
 
-        histogram_query = self.connection_pool.runQuery("select id from strikes order by id desc limit 1")
+        reference_time = time.time()
 
-        query = gatherResults([raster_query, histogram_query], consumeErrors=True)
-        query.addCallback(compile_strikes_result, end_time=time_interval.get_end())
+        grid_query, end_time = self.create_strikes_grid_query(grid_parameters, minute_length, minute_offset,
+                                                              reference_time)
+
+        histogram_query = self.create_histogram_query(minute_length, minute_offset)
+
+        query = gatherResults([grid_query, histogram_query], consumeErrors=True)
+        query.addCallback(self.build_grid_response, grid_parameters=grid_parameters, end_time=end_time)
         query.addErrback(log.err)
 
-        reference_time = time.time()
-        statsd_client.timing('strikes_raster.query', max(1, int((time.time() - reference_time) * 1000)))
+        return query
+
+    def build_grid_result(self, results, end_time, statsd_client, reference_time, grid_parameters):
+        query_duration = time.time() - reference_time
+        print("strikes_grid_query() %.02fs #%d %s" % (query_duration, len(results), grid_parameters))
+        statsd_client.timing('strikes_grid.query', max(1, int(query_duration * 1000)))
 
         reference_time = time.time()
-        reduced_strike_array = raster_strikes.to_reduced_array(end_time)
-        statsd_client.timing('strikes_raster.reduce', max(1, int((time.time() - reference_time) * 1000)))
+        grid_data = blitzortung.data.GridData(grid_parameters)
+
+        for result in results:
+            grid_data.set(result['rx'], result['ry'],
+                          blitzortung.geom.GridElement(result['count'], result['timestamp']))
+
+        reduced_array = grid_data.to_reduced_array(end_time)
+
+        statsd_client.timing('strikes_grid.reduce', max(1, int((time.time() - reference_time) * 1000)))
+        return reduced_array
+
+    def build_grid_response(self, results, end_time, grid_parameters):
+        grid_data = results[0]
+        histogram_data = results[1]
+
+        statsd_client.gauge('strikes_grid.size', len(grid_data))
+        statsd_client.incr('strikes_grid')
 
         reference_time = time.time()
-        histogram = strike_db.select_histogram(minute_length, minute_offset, 5, envelope=raster_data)
-        statsd_client.timing('strikes_raster.histogram_query', max(1, int((time.time() - reference_time) * 1000)))
-
-        reference_time = time.time()
-        response = {'r': reduced_strike_array, 'xd': round(raster_data.get_x_div(), 6),
-                    'yd': round(raster_data.get_y_div(), 6),
-                    'x0': round(raster_data.get_x_min(), 4), 'y1': round(raster_data.get_y_max(), 4),
-                    'xc': raster_data.get_x_bin_count(),
-                    'yc': raster_data.get_y_bin_count(), 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
-                    'h': histogram}
-        statsd_client.timing('strikes_raster.pack_response', max(1, int((time.time() - reference_time) * 1000)))
-
+        response = {'r': grid_data, 'xd': round(grid_parameters.get_x_div(), 6),
+                    'yd': round(grid_parameters.get_y_div(), 6),
+                    'x0': round(grid_parameters.get_x_min(), 4), 'y1': round(grid_parameters.get_y_max(), 4),
+                    'xc': grid_parameters.get_x_bin_count(),
+                    'yc': grid_parameters.get_y_bin_count(), 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
+                    'h': histogram_data}
+        statsd_client.timing('strikes_grid.pack_response', max(1, int((time.time() - reference_time) * 1000)))
         return response
 
-    @with_request
-    def jsonrpc_get_strokes_raster(self, request, minute_length, raster_base_length=10000, minute_offset=0, region=1):
-        return self.jsonrpc_get_strikes_raster(request, minute_length, raster_base_length, minute_offset, region)
 
     @with_request
-    def jsonrpc_get_strikes_raster(self, request, minute_length, raster_base_length=10000, minute_offset=0, region=1):
-        raster_base_length = self.__force_min(raster_base_length, 5000)
+    def jsonrpc_get_strikes_raster(self, request, minute_length, grid_base_length=10000, minute_offset=0, region=1):
+        return self.jsonrpc_get_strikes_grid(request, minute_length, grid_base_length, minute_offset, region)
+
+    @with_request
+    def jsonrpc_get_strokes_raster(self, request, minute_length, grid_base_length=10000, minute_offset=0, region=1):
+        return self.jsonrpc_get_strikes_grid(request, minute_length, grid_base_length, minute_offset, region)
+
+    @with_request
+    def jsonrpc_get_strikes_grid(self, request, minute_length, grid_base_length=10000, minute_offset=0, region=1):
+        grid_base_length = self.__force_min(grid_base_length, 5000)
         minute_length = self.__force_range(minute_length, 0, 24 * 60)
         minute_offset = self.__force_range(minute_offset, -24 * 60 + minute_length, 0)
 
-        reference_time = time.time()
-
-        response = self.strikes_raster_cache.get(self.get_strikes_raster, minute_length=minute_length,
-                                                 raster_baselength=raster_base_length,
-                                                 minute_offset=minute_offset, region=region)
-
-        full_time = time.time() - reference_time
-        data_size = len(response['r'])
-
-        statsd_client.incr('strikes_raster')
-        statsd_client.timing('strikes_raster', max(1, int(full_time * 1000)))
-        statsd_client.gauge('strikes_raster.size', data_size)
+        response = self.strikes_grid_cache.get(self.get_strikes_grid, minute_length=minute_length,
+                                               grid_baselength=grid_base_length,
+                                               minute_offset=minute_offset, region=region)
 
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
-        print('"get_strikes_raster(%d, %d, %d, %d)" "#%d %.2fs %.1f%%" %s "%s"' % (
-            minute_length, raster_base_length, minute_offset, region, data_size, full_time,
-            self.strikes_raster_cache.get_ratio() * 100, client, user_agent))
+        print('"get_strikes_grid(%d, %d, %d, %d)" "%.1f%%" %s "%s"' % (
+            minute_length, grid_base_length, minute_offset, region, self.strikes_grid_cache.get_ratio() * 100, client,
+            user_agent))
 
         return response
 

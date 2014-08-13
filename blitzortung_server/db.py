@@ -59,6 +59,7 @@ class QueryBuilder(object):
     @staticmethod
     def select_strokes_query(*args, **kwargs):
         print("select_strokes_query()")
+
         """ build up query object for select statement """
 
         query = kwargs['query'] if 'query' in kwargs else blitzortung.db.query.Query()
@@ -126,11 +127,22 @@ def compile_strikes_result(result, end_time):
     strikes_result = result[0]
     histogram_result = result[1]
 
-    print("histogram_result", histogram_result)
-
     base_result = {'t': end_time.strftime("%Y%m%dT%H:%M:%S"), 'h': histogram_result}
     base_result.update(strikes_result)
     return base_result
+
+
+def histogram_result_build(cursor, minutes, bin_size, reference_time):
+    time_duration = time.time() - reference_time
+    print("histogram_query() %.03fs" % time_duration)
+    value_count = minutes / bin_size
+
+    result = [0] * value_count
+
+    for bin_data in cursor:
+        result[bin_data[0] + value_count - 1] = bin_data[1]
+
+    return result
 
 
 
