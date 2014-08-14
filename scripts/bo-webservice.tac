@@ -341,7 +341,6 @@ users = {'test': 'test'}
 # Set up the application and the JSON-RPC resource.
 application = service.Application("Blitzortung.org JSON-RPC Server")
 log_directory = "/var/log/blitzortung"
-log_directory = "./"
 logfile = DailyLogFile("webservice.log", log_directory)
 application.setComponent(ILogObserver, FileLogObserver(logfile).emit)
 root = Blitzortung()
