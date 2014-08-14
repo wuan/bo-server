@@ -108,7 +108,6 @@ def create_connection_pool():
 
     created_connection_pool = DictConnectionPool(None, db_connection_string)
 
-    print(created_connection_pool.connectionFactory)
     d = created_connection_pool.start()
     d.addErrback(log.err)
     return created_connection_pool
@@ -239,11 +238,9 @@ class Blitzortung(jsonrpc.JSONRPC):
         return strikes_query, end_time
 
     def strike_result_build(self, query_result, end_time, statsd_client, reference_time):
-        print("strike_result_build()")
-        print("  end_time", end_time)
-        query_time = time.time()
-        db_query_time = (query_time - reference_time)
-        statsd_client.timing('strikes.query', max(1, int(db_query_time * 1000)))
+        time_duration = time.time() - reference_time
+        print("strike_result_build() %.03fs" % time_duration)
+        statsd_client.timing('strikes.query', max(1, int(time_duration * 1000)))
 
         reference_time = time.time()
         strikes = tuple(
@@ -306,7 +303,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         histogram_query = self.create_histogram_query(minute_length, minute_offset)
 
         query = gatherResults([strikes_query, histogram_query], consumeErrors=True)
-        query.addCallback(self.compile_strikes_result, end_time=end_time)
+        query.addCallback(self.compile_strikes_result, reference_time=reference_time, end_time=end_time)
         query.addErrback(log.err)
 
         client = self.get_request_client(request)
@@ -343,12 +340,17 @@ class Blitzortung(jsonrpc.JSONRPC):
                                                       id_interval, order), time_interval.get_end()
 
     @staticmethod
-    def compile_strikes_result(result, end_time):
+    def compile_strikes_result(result, reference_time, end_time):
+        time_duration = time.time() - reference_time
+        print("compile_strikes_result() %.03fs" % time_duration)
+        statsd_client.timing('strikes.result', max(1, int(time_duration * 1000)))
+
         strikes_result = result[0]
         histogram_result = result[1]
 
         base_result = {'t': end_time.strftime("%Y%m%dT%H:%M:%S"), 'h': histogram_result}
         base_result.update(strikes_result)
+
         return base_result
 
     def jsonrpc_get_strikes_around(self, longitude, latitude, minute_length, min_id=None):
@@ -378,7 +380,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         histogram_query = self.create_histogram_query(minute_length, minute_offset)
 
         query = gatherResults([grid_query, histogram_query], consumeErrors=True)
-        query.addCallback(self.build_grid_response, grid_parameters=grid_parameters, end_time=end_time)
+        query.addCallback(self.build_grid_response, grid_parameters=grid_parameters, end_time=end_time, reference_time=reference_time)
         query.addErrback(log.err)
 
         return query
@@ -402,7 +404,11 @@ class Blitzortung(jsonrpc.JSONRPC):
         return reduced_array
 
     @staticmethod
-    def build_grid_response(results, end_time, grid_parameters):
+    def build_grid_response(results, end_time, grid_parameters, reference_time):
+        time_duration = time.time() - reference_time
+        print("build_grid_response() %.03fs" % time_duration)
+        statsd_client.timing('strikes_grid.result', max(1, int(time_duration * 1000)))
+
         grid_data = results[0]
         histogram_data = results[1]
 
