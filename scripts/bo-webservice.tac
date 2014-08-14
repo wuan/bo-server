@@ -1,9 +1,15 @@
 #!/usr/bin/env python
 
 from __future__ import division, print_function
+import psycopg2
 from twisted.internet.defer import gatherResults
+from twisted.internet.error import ReactorAlreadyInstalledError
 
 from twisted.python import log
+from twisted.web.resource import IResource
+from twisted.web.static import File
+from txpostgres import reconnection
+from txpostgres.txpostgres import Connection, ConnectionPool
 
 try:
     from twisted.internet import epollreactor as reactor
@@ -15,7 +21,6 @@ try:
 except ReactorAlreadyInstalledError:
     pass
 
-from twisted.internet import reactor as the_reactor
 from twisted.internet import defer
 from twisted.internet.error import ReactorAlreadyInstalledError
 from txjsonrpc.web.jsonrpc import with_request
@@ -41,14 +46,15 @@ import statsd
 
 statsd_client = statsd.StatsClient('localhost', 8125, prefix='org.blitzortung.service')
 
+import blitzortung.builder
 import blitzortung.config
 import blitzortung.cache
+import blitzortung.data
 import blitzortung.geom
 import blitzortung.db
+import blitzortung.db.mapper
 import blitzortung.db.query
-import blitzortung_server
-
-from blitzortung_server.db import compile_strikes_result
+import blitzortung.db.query_builder
 
 import sys
 
@@ -59,6 +65,53 @@ WGS84 = pyproj.Proj(init='epsg:4326')
 UTM_EU = pyproj.Proj(init='epsg:32633')  # UTM 33 N / WGS84
 UTM_USA = pyproj.Proj(init='epsg:32614')  # UTM 14 N / WGS84
 UTM_OC = pyproj.Proj(init='epsg:32755')  # UTM 55 S / WGS84
+
+
+def connection_factory(*args, **kwargs):
+    kwargs['connection_factory'] = psycopg2.extras.DictConnection
+    return psycopg2.connect(*args, **kwargs)
+
+
+class LoggingDetector(reconnection.DeadConnectionDetector):
+    def startReconnecting(self, f):
+        print('[*] database connection is down (error: %r)' % f.value)
+        return reconnection.DeadConnectionDetector.startReconnecting(self, f)
+
+    def reconnect(self):
+        print('[*] reconnecting...')
+        return reconnection.DeadConnectionDetector.reconnect(self)
+
+    def connectionRecovered(self):
+        print('[*] connection recovered')
+        return reconnection.DeadConnectionDetector.connectionRecovered(self)
+
+
+class DictConnection(Connection):
+    connectionFactory = staticmethod(connection_factory)
+
+    def __init__(self, reactor=None, cooperator=None, detector=None):
+        if not detector:
+            detector = LoggingDetector()
+        super(DictConnection, self).__init__(reactor, cooperator, detector)
+
+
+class DictConnectionPool(ConnectionPool):
+    connectionFactory = DictConnection
+
+    def __init__(self, _ignored, *connargs, **connkw):
+        super(DictConnectionPool, self).__init__(_ignored, *connargs, **connkw)
+
+
+def create_connection_pool():
+    config = blitzortung.config.config()
+    db_connection_string = config.get_db_connection_string()
+
+    created_connection_pool = DictConnectionPool(None, db_connection_string)
+
+    print(created_connection_pool.connectionFactory)
+    d = created_connection_pool.start()
+    d.addErrback(log.err)
+    return created_connection_pool
 
 
 class PasswordDictChecker(object):
@@ -148,9 +201,11 @@ class Blitzortung(jsonrpc.JSONRPC):
     An example object to be published.
     """
 
-    def __init__(self, connection_pool):
-        self.connection_pool = connection_pool
+    def __init__(self, db_connection_pool):
+        self.connection_pool = db_connection_pool
         self.strike_query_builder = blitzortung.db.query_builder.Strike()
+        self.strike_builder = blitzortung.builder.Strike()
+        self.strike_mapper = blitzortung.db.mapper.Strike(self.strike_builder)
         self.check_count = 0
         self.strikes_grid_cache = blitzortung.cache.ObjectCache(ttl_seconds=20)
         self.test = None
@@ -179,18 +234,63 @@ class Blitzortung(jsonrpc.JSONRPC):
     def create_strikes_query(self, id_or_offset, minute_length, minute_offset, reference_time):
         query, end_time = self.create_strike_query(id_or_offset, minute_length, minute_offset)
         strikes_query = self.connection_pool.runQuery(str(query), query.get_parameters())
-        strikes_query.addCallback(blitzortung_server.strike_result_build, end_time=end_time,
+        strikes_query.addCallback(self.strike_result_build, end_time=end_time,
                                   statsd_client=statsd_client, reference_time=reference_time)
         return strikes_query, end_time
+
+    def strike_result_build(self, query_result, end_time, statsd_client, reference_time):
+        print("strike_result_build()")
+        print("  end_time", end_time)
+        query_time = time.time()
+        db_query_time = (query_time - reference_time)
+        statsd_client.timing('strikes.query', max(1, int(db_query_time * 1000)))
+
+        reference_time = time.time()
+        strikes = tuple(
+            (
+                (end_time - strike.get_timestamp()).seconds,
+                strike.get_x(),
+                strike.get_y(),
+                strike.get_altitude(),
+                strike.get_lateral_error(),
+                strike.get_amplitude(),
+                strike.get_station_count()
+            ) for strike in self.create_strikes(query_result))
+
+        result = {'s': strikes}
+
+        if strikes:
+            result['next'] = query_result[-1][0] + 1
+
+        statsd_client.timing('strikes.reduce', max(1, int((time.time() - reference_time) * 1000)))
+        return result
+
+    def create_strikes(self, query_results):
+        print("create_strikes()")
+        for result in query_results:
+            yield self.strike_mapper.create_object(result)
 
     def create_histogram_query(self, minute_length, minute_offset):
         reference_time = time.time()
         query = self.strike_query_builder.histogram_query(blitzortung.db.table.Strike.TABLE_NAME, minute_length,
                                                           minute_offset, 5)
         histogram_query = self.connection_pool.runQuery(str(query), query.get_parameters())
-        histogram_query.addCallback(blitzortung_server.histogram_result_build, minutes=minute_length, bin_size=5,
+        histogram_query.addCallback(self.histogram_result_build, minutes=minute_length, bin_size=5,
                                     reference_time=reference_time)
         return histogram_query
+
+    @staticmethod
+    def histogram_result_build(cursor, minutes, bin_size, reference_time):
+        time_duration = time.time() - reference_time
+        print("histogram_query() %.03fs" % time_duration)
+        value_count = int(minutes / bin_size)
+
+        result = [0] * value_count
+
+        for bin_data in cursor:
+            result[bin_data[0] + value_count - 1] = bin_data[1]
+
+        return result
 
     @with_request
     def jsonrpc_get_strikes(self, request, minute_length, id_or_offset=0):
@@ -206,7 +306,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         histogram_query = self.create_histogram_query(minute_length, minute_offset)
 
         query = gatherResults([strikes_query, histogram_query], consumeErrors=True)
-        query.addCallback(compile_strikes_result, end_time=end_time)
+        query.addCallback(self.compile_strikes_result, end_time=end_time)
         query.addErrback(log.err)
 
         client = self.get_request_client(request)
@@ -242,6 +342,15 @@ class Blitzortung(jsonrpc.JSONRPC):
                                                       blitzortung.geom.Geometry.DefaultSrid, time_interval,
                                                       id_interval, order), time_interval.get_end()
 
+    @staticmethod
+    def compile_strikes_result(result, end_time):
+        strikes_result = result[0]
+        histogram_result = result[1]
+
+        base_result = {'t': end_time.strftime("%Y%m%dT%H:%M:%S"), 'h': histogram_result}
+        base_result.update(strikes_result)
+        return base_result
+
     def jsonrpc_get_strikes_around(self, longitude, latitude, minute_length, min_id=None):
         pass
 
@@ -274,9 +383,10 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         return query
 
-    def build_grid_result(self, results, end_time, statsd_client, reference_time, grid_parameters):
+    @staticmethod
+    def build_grid_result(results, end_time, statsd_client, reference_time, grid_parameters):
         query_duration = time.time() - reference_time
-        print("strikes_grid_query() %.02fs #%d %s" % (query_duration, len(results), grid_parameters))
+        print("strikes_grid_query() %.03fs #%d %s" % (query_duration, len(results), grid_parameters))
         statsd_client.timing('strikes_grid.query', max(1, int(query_duration * 1000)))
 
         reference_time = time.time()
@@ -291,7 +401,8 @@ class Blitzortung(jsonrpc.JSONRPC):
         statsd_client.timing('strikes_grid.reduce', max(1, int((time.time() - reference_time) * 1000)))
         return reduced_array
 
-    def build_grid_response(self, results, end_time, grid_parameters):
+    @staticmethod
+    def build_grid_response(results, end_time, grid_parameters):
         grid_data = results[0]
         histogram_data = results[1]
 
@@ -307,7 +418,6 @@ class Blitzortung(jsonrpc.JSONRPC):
                     'h': histogram_data}
         statsd_client.timing('strikes_grid.pack_response', max(1, int((time.time() - reference_time) * 1000)))
         return response
-
 
     @with_request
     def jsonrpc_get_strikes_raster(self, request, minute_length, grid_base_length=10000, minute_offset=0, region=1):
@@ -380,10 +490,9 @@ users = {'test': 'test'}
 # Set up the application and the JSON-RPC resource.
 application = service.Application("Blitzortung.org JSON-RPC Server")
 #log_directory = "/var/log/blitzortung"
-#log_directory = "./"
 #logfile = DailyLogFile("webservice.log", log_directory)
 #application.setComponent(ILogObserver, FileLogObserver(logfile).emit)
-connection_pool = blitzortung_server.create_connection_pool()
+connection_pool = create_connection_pool()
 root = Blitzortung(connection_pool)
 
 credentialFactory = DigestCredentialFactory("md5", "blitzortung.org")
@@ -399,13 +508,13 @@ class PublicHTMLRealm(object):
 
     def requestAvatar(self, avatarId, mind, *interfaces):
         if IResource in interfaces:
-            return (IResource, File("/home/%s/public_html" % (avatarId,)), lambda: None)
+            return IResource, File("/home/%s/public_html" % (avatarId,)), lambda: None
         raise NotImplementedError()
 
 
-portal = portal.Portal(PublicHTMLRealm(), [checker])
+service_portal = portal.Portal(PublicHTMLRealm(), [checker])
 
-resource = HTTPAuthSessionWrapper(portal, [credentialFactory])
+resource = HTTPAuthSessionWrapper(service_portal, [credentialFactory])
 
 # With the wrapped root, we can set up the server as usual.
 # site = server.Site(resource=wrappedRoot)
