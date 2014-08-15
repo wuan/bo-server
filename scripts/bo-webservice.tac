@@ -360,10 +360,11 @@ class Blitzortung(jsonrpc.JSONRPC):
         statsd_client.timing('strikes_grid.query', max(1, int(query_duration * 1000)))
 
         reference_time = time.time()
+        y_bin_count = grid_parameters.get_y_bin_count()
         strikes_grid_result = tuple(
             (
-                int(result['rx']),
-                grid_parameters.get_y_bin_count() - int(result['ry']) - 1,
+                result['rx'],
+                y_bin_count - result['ry'] - 1,
                 result['count'],
                 -(end_time - result['timestamp']).seconds
             ) for result in results
