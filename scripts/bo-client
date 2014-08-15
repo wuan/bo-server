@@ -77,7 +77,7 @@ def check():
 
 
 get_strikes_grid()
-# get_strikes()
+#get_strikes()
 # check()
 
 

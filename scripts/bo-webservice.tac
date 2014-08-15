@@ -37,6 +37,7 @@ from twisted.python.logfile import DailyLogFile
 from txjsonrpc.auth import wrapResource
 from txjsonrpc.web import jsonrpc
 
+import os
 import math
 import datetime
 import time
@@ -207,6 +208,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         self.strike_mapper = blitzortung.db.mapper.Strike(self.strike_builder)
         self.check_count = 0
         self.strikes_grid_cache = blitzortung.cache.ObjectCache(ttl_seconds=20)
+        self.histogram_cache = blitzortung.cache.ObjectCache(ttl_seconds=60)
         self.test = None
 
     addSlash = True
@@ -267,10 +269,10 @@ class Blitzortung(jsonrpc.JSONRPC):
         for result in query_results:
             yield self.strike_mapper.create_object(result)
 
-    def create_histogram_query(self, minute_length, minute_offset):
+    def create_histogram_query(self, minute_length, minute_offset, region):
         reference_time = time.time()
         query = self.strike_query_builder.histogram_query(blitzortung.db.table.Strike.TABLE_NAME, minute_length,
-                                                          minute_offset, 5)
+                                                          minute_offset, 5, region)
         histogram_query = self.connection_pool.runQuery(str(query), query.get_parameters())
         histogram_query.addCallback(self.histogram_result_build, minutes=minute_length, bin_size=5,
                                     reference_time=reference_time)
@@ -300,7 +302,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         strikes_query, end_time = self.create_strikes_query(id_or_offset, minute_length, minute_offset, reference_time)
 
         minute_offset = -id_or_offset if id_or_offset < 0 else 0
-        histogram_query = self.create_histogram_query(minute_length, minute_offset)
+        histogram_query = self.get_histogram(minute_length, minute_offset)
 
         query = gatherResults([strikes_query, histogram_query], consumeErrors=True)
         query.addCallback(self.compile_strikes_result, reference_time=reference_time, end_time=end_time)
@@ -316,7 +318,8 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         return query
 
-    def create_time_interval(self, minute_length, minute_offset):
+    @staticmethod
+    def create_time_interval(minute_length, minute_offset):
         end_time = datetime.datetime.utcnow()
         end_time = end_time.replace(tzinfo=pytz.UTC)
         end_time = end_time.replace(microsecond=0)
@@ -377,7 +380,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         grid_query, end_time = self.create_strikes_grid_query(grid_parameters, minute_length, minute_offset,
                                                               reference_time)
 
-        histogram_query = self.create_histogram_query(minute_length, minute_offset)
+        histogram_query = self.get_histogram(minute_length, minute_offset, region)
 
         query = gatherResults([grid_query, histogram_query], consumeErrors=True)
         query.addCallback(self.build_grid_response, grid_parameters=grid_parameters, end_time=end_time, reference_time=reference_time)
@@ -451,6 +454,9 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         return response
 
+    def get_histogram(self, minute_length, minute_offset, region=None):
+        return self.histogram_cache.get(self.create_histogram_query, minute_length=minute_length, minute_offset=minute_offset, region=region)
+
     @with_request
     def jsonrpc_get_stations(self, request):
         stations_db = blitzortung.db.station()
@@ -496,8 +502,9 @@ users = {'test': 'test'}
 # Set up the application and the JSON-RPC resource.
 application = service.Application("Blitzortung.org JSON-RPC Server")
 log_directory = "/var/log/blitzortung"
-logfile = DailyLogFile("webservice.log", log_directory)
-application.setComponent(ILogObserver, FileLogObserver(logfile).emit)
+if os.path.exists(log_directory):
+    logfile = DailyLogFile("webservice.log", log_directory)
+    application.setComponent(ILogObserver, FileLogObserver(logfile).emit)
 connection_pool = create_connection_pool()
 root = Blitzortung(connection_pool)
 
