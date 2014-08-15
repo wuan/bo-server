@@ -62,7 +62,6 @@ import sys
 if sys.version > '3':
     long = int
 
-WGS84 = pyproj.Proj(init='epsg:4326')
 UTM_EU = pyproj.Proj(init='epsg:32633')  # UTM 33 N / WGS84
 UTM_USA = pyproj.Proj(init='epsg:32614')  # UTM 14 N / WGS84
 UTM_OC = pyproj.Proj(init='epsg:32755')  # UTM 55 S / WGS84
@@ -156,44 +155,9 @@ class TestRealm(object):
             raise KeyError('none of the requested interfaces is supported')
 
 
-class GridDataFactory(object):
-    def __init__(self, min_lon, max_lon, min_lat, max_lat, coord_sys):
-        self.min_lon = min_lon
-        self.max_lon = max_lon
-        self.min_lat = min_lat
-        self.max_lat = max_lat
-        self.coord_sys = coord_sys
-
-        self.grid_data = {}
-
-    @staticmethod
-    def fix_max(minimum, maximum, delta):
-        return minimum + math.floor((maximum - minimum) / delta) * delta
-
-    def get_for(self, base_length):
-        if base_length not in self.grid_data:
-            ref_lon = (self.min_lon + self.max_lon) / 2.0
-            ref_lat = (self.min_lat + self.max_lat) / 2.0
-
-            utm_x, utm_y = pyproj.transform(WGS84, self.coord_sys, ref_lon, ref_lat)
-            lon_d, lat_d = pyproj.transform(self.coord_sys, WGS84, utm_x + base_length, utm_y + base_length)
-
-            delta_lon = lon_d - ref_lon
-            delta_lat = lat_d - ref_lat
-
-            max_lon = self.fix_max(self.min_lon, self.max_lon, delta_lon)
-            max_lat = self.fix_max(self.min_lat, self.max_lat, delta_lat)
-
-            self.grid_data[base_length] = blitzortung.geom.Grid(self.min_lon, max_lon, self.min_lat, max_lat,
-                                                                delta_lon, delta_lat,
-                                                                blitzortung.geom.Geometry.DefaultSrid)
-
-        return self.grid_data[base_length]
-
-
-grid = {1: GridDataFactory(-15, 40, 32, 70, UTM_EU),
-        2: GridDataFactory(110, 180, -50, 0, UTM_OC),
-        3: GridDataFactory(-140, -50, 10, 60, UTM_USA)}
+grid = {1: blitzortung.geom.GridFactory(-15, 40, 32, 70, UTM_EU),
+        2: blitzortung.geom.GridFactory(110, 180, -50, 0, UTM_OC),
+        3: blitzortung.geom.GridFactory(-140, -50, 10, 60, UTM_USA)}
 
 
 class Blitzortung(jsonrpc.JSONRPC):
@@ -365,7 +329,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         query = self.strike_query_builder.grid_query(blitzortung.db.table.Strike.TABLE_NAME, grid_parameters,
                                                      time_interval)
         grid_query = self.connection_pool.runQuery(str(query), query.get_parameters())
-        grid_query.addCallback(self.build_grid_result, end_time=time_interval.get_end(),
+        grid_query.addCallback(self.build_strikes_grid_result, end_time=time_interval.get_end(),
                                statsd_client=statsd_client, reference_time=reference_time,
                                grid_parameters=grid_parameters)
         grid_query.addErrback(log.err)
@@ -383,28 +347,30 @@ class Blitzortung(jsonrpc.JSONRPC):
         histogram_query = self.get_histogram(minute_length, minute_offset, region)
 
         query = gatherResults([grid_query, histogram_query], consumeErrors=True)
-        query.addCallback(self.build_grid_response, grid_parameters=grid_parameters, end_time=end_time, reference_time=reference_time)
+        query.addCallback(self.build_grid_response, grid_parameters=grid_parameters, end_time=end_time,
+                          reference_time=reference_time)
         query.addErrback(log.err)
 
         return query
 
     @staticmethod
-    def build_grid_result(results, end_time, statsd_client, reference_time, grid_parameters):
+    def build_strikes_grid_result(results, end_time, statsd_client, reference_time, grid_parameters):
         query_duration = time.time() - reference_time
         print("strikes_grid_query() %.03fs #%d %s" % (query_duration, len(results), grid_parameters))
         statsd_client.timing('strikes_grid.query', max(1, int(query_duration * 1000)))
 
         reference_time = time.time()
-        grid_data = blitzortung.data.GridData(grid_parameters)
+        strikes_grid_result = tuple(
+            (
+                int(result['rx']),
+                grid_parameters.get_y_bin_count() - int(result['ry']) - 1,
+                result['count'],
+                -(end_time - result['timestamp']).seconds
+            ) for result in results
+        )
+        statsd_client.timing('strikes_grid.build_result', max(1, int((time.time() - reference_time) * 1000)))
 
-        for result in results:
-            grid_data.set(result['rx'], result['ry'],
-                          blitzortung.geom.GridElement(result['count'], result['timestamp']))
-
-        reduced_array = grid_data.to_reduced_array(end_time)
-
-        statsd_client.timing('strikes_grid.reduce', max(1, int((time.time() - reference_time) * 1000)))
-        return reduced_array
+        return strikes_grid_result
 
     @staticmethod
     def build_grid_response(results, end_time, grid_parameters, reference_time):
@@ -455,7 +421,8 @@ class Blitzortung(jsonrpc.JSONRPC):
         return response
 
     def get_histogram(self, minute_length, minute_offset, region=None):
-        return self.histogram_cache.get(self.create_histogram_query, minute_length=minute_length, minute_offset=minute_offset, region=region)
+        return self.histogram_cache.get(self.create_histogram_query, minute_length=minute_length,
+                                        minute_offset=minute_offset, region=region)
 
     @with_request
     def jsonrpc_get_stations(self, request):
