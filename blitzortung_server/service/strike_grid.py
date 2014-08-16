@@ -5,7 +5,20 @@ from twisted.python import log
 
 import blitzortung
 
-from . import create_time_interval
+from general import create_time_interval, TimingState
+
+
+class StrikeGridState(TimingState):
+    def __init__(self, statsd_client, grid_parameters, end_time):
+        super(StrikeGridState, self).__init__(statsd_client)
+        self.grid_parameters = grid_parameters
+        self.end_time = end_time
+
+    def get_grid_parameters(self):
+        return self.grid_parameters
+
+    def get_end_time(self):
+        return self.end_time
 
 
 class StrikeGridQuery(object):
@@ -13,26 +26,27 @@ class StrikeGridQuery(object):
     def __init__(self, strike_query_builder):
         self.strike_query_builder = strike_query_builder
 
-    def create(self, grid_parameters, minute_length, minute_offset, reference_time, connection, statsd_client):
+    def create(self, grid_parameters, minute_length, minute_offset, connection, statsd_client):
         time_interval = create_time_interval(minute_length, minute_offset)
+
+        state = StrikeGridState(statsd_client, grid_parameters, time_interval.get_end())
 
         query = self.strike_query_builder.grid_query(blitzortung.db.table.Strike.TABLE_NAME, grid_parameters,
                                                      time_interval)
+        print(str(query))
         grid_query = connection.runQuery(str(query), query.get_parameters())
-        grid_query.addCallback(self.build_strikes_grid_result, end_time=time_interval.get_end(),
-                               statsd_client=statsd_client, reference_time=reference_time,
-                               grid_parameters=grid_parameters)
+        grid_query.addCallback(self.build_strikes_grid_result, state=state)
         grid_query.addErrback(log.err)
-        return grid_query, time_interval.get_end()
+        return grid_query, state
 
     @staticmethod
-    def build_strikes_grid_result(results, end_time, statsd_client, reference_time, grid_parameters):
-        query_duration = time.time() - reference_time
-        print("strikes_grid_query() %.03fs #%d %s" % (query_duration, len(results), grid_parameters))
-        statsd_client.timing('strikes_grid.query', max(1, int(query_duration * 1000)))
+    def build_strikes_grid_result(results, state):
+        print("strikes_grid_query: %.03fs #%d %s" % (state.get_seconds(), len(results), state.get_grid_parameters()))
+        state.log_timing('strikes_grid.query')
 
         reference_time = time.time()
-        y_bin_count = grid_parameters.get_y_bin_count()
+        y_bin_count = state.get_grid_parameters().get_y_bin_count()
+        end_time = state.get_end_time()
         strikes_grid_result = tuple(
             (
                 result['rx'],
@@ -41,38 +55,37 @@ class StrikeGridQuery(object):
                 -(end_time - result['timestamp']).seconds
             ) for result in results
         )
-        statsd_client.timing('strikes_grid.build_result', max(1, int((time.time() - reference_time) * 1000)))
+        print("strikes_grid_result: %.03fs" % state.get_seconds(reference_time))
+        state.log_timing('strikes_grid.build_result', reference_time)
 
         return strikes_grid_result
 
-    def combine_result(self, strike_grid_result, histogram_result):
-
+    def combine_result(self, strike_grid_result, histogram_result, state):
         combined_result = gatherResults([strike_grid_result, histogram_result], consumeErrors=True)
-        combined_result.addCallback(self.build_grid_response, grid_parameters=grid_parameters, end_time=end_time,
-                          reference_time=reference_time)
+        combined_result.addCallback(self.build_grid_response, state=state)
         combined_result.addErrback(log.err)
 
         return combined_result
 
     @staticmethod
-    def build_grid_response(results, end_time, grid_parameters, reference_time):
-        time_duration = time.time() - reference_time
-        print("build_grid_response() %.03fs" % time_duration)
-        statsd_client.timing('strikes_grid.result', max(1, int(time_duration * 1000)))
+    def build_grid_response(results, state):
+        state.log_timing('strikes_grid.results')
 
         grid_data = results[0]
         histogram_data = results[1]
 
-        statsd_client.gauge('strikes_grid.size', len(grid_data))
-        statsd_client.incr('strikes_grid')
+        state.log_gauge('strikes_grid.size', len(grid_data))
+        state.log_incr('strikes_grid')
 
-        reference_time = time.time()
+        grid_parameters = state.get_grid_parameters()
+        end_time = state.get_end_time()
         response = {'r': grid_data, 'xd': round(grid_parameters.get_x_div(), 6),
                     'yd': round(grid_parameters.get_y_div(), 6),
                     'x0': round(grid_parameters.get_x_min(), 4), 'y1': round(grid_parameters.get_y_max(), 4),
                     'xc': grid_parameters.get_x_bin_count(),
                     'yc': grid_parameters.get_y_bin_count(), 't': end_time.strftime("%Y%m%dT%H:%M:%S"),
                     'h': histogram_data}
-        statsd_client.timing('strikes_grid.pack_response', max(1, int((time.time() - reference_time) * 1000)))
+        print("strikes_grid_total: %.03fs" % state.get_seconds())
+        state.log_timing('strikes_grid.total')
         return response
 

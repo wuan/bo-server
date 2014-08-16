@@ -202,39 +202,33 @@ class Blitzortung(jsonrpc.JSONRPC):
         minute_offset = self.__force_range(id_or_offset, -24 * 60 + minute_length,
                                            0) if id_or_offset < 0 else 0
 
-        reference_time = time.time()
-        strikes_query, end_time = self.strike_query.create(id_or_offset, minute_length, minute_offset, reference_time, self.connection_pool, statsd_client)
+        strikes_result, state = self.strike_query.create(id_or_offset, minute_length, minute_offset,
+                                                         self.connection_pool, statsd_client)
 
         minute_offset = -id_or_offset if id_or_offset < 0 else 0
-        histogram_query = self.histogram_query.create(self.connection_pool, minute_length, minute_offset)
+        histogram_result = self.get_histogram(minute_length, minute_offset)
 
-        combined_result = self.strike_query.combine_result(strikes_query, histogram_query)
+        combined_result = self.strike_query.combine_result(strikes_result, histogram_result, state)
+        print(combined_result)
 
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
-        print('"get_strikes(%d, %d)" %s "%s"' % ( minute_length, id_or_offset, client, user_agent))
-
-        full_time = time.time()
-        statsd_client.incr(blitzortung.db.table.Strike.TABLE_NAME)
-        statsd_client.timing(blitzortung.db.table.Strike.TABLE_NAME, max(1, int((full_time - reference_time) * 1000)))
-
+        print('"get_strikes(%d, %d)" %s "%s"' % (minute_length, id_or_offset, client, user_agent))
+        print(combined_result)
         return combined_result
 
     def jsonrpc_get_strikes_around(self, longitude, latitude, minute_length, min_id=None):
         pass
 
     def get_strikes_grid(self, minute_length, grid_baselength, minute_offset, region):
-
         grid_parameters = grid[region].get_for(grid_baselength)
 
-        reference_time = time.time()
+        grid_result, state = self.strike_grid_query.create(grid_parameters, minute_length, minute_offset,
+                                                           self.connection_pool, statsd_client)
 
-        grid_query, end_time = self.strike_grid_query.create(grid_parameters, minute_length, minute_offset,
-                                                              reference_time, self.connection_pool, statsd_client)
+        histogram_result = self.get_histogram(minute_length, minute_offset, region)
 
-        histogram_query = self.get_histogram(minute_length, minute_offset, region)
-
-        combined_result = self.strike_grid_query.combine_result(grid_query, histogram_query)
+        combined_result = self.strike_grid_query.combine_result(grid_result, histogram_result, state)
 
         return combined_result
 
