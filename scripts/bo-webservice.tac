@@ -53,8 +53,8 @@ import blitzortung.db
 import blitzortung.db.mapper
 import blitzortung.db.query
 import blitzortung.db.query_builder
+import blitzortung.service
 
-import blitzortung_server.service
 
 import sys
 
@@ -166,9 +166,9 @@ class Blitzortung(jsonrpc.JSONRPC):
 
     def __init__(self, db_connection_pool):
         self.connection_pool = db_connection_pool
-        self.strike_query = blitzortung_server.service.strike_query()
-        self.strike_grid_query = blitzortung_server.service.strike_grid_query()
-        self.histogram_query = blitzortung_server.service.histogram_query()
+        self.strike_query = blitzortung.service.strike_query()
+        self.strike_grid_query = blitzortung.service.strike_grid_query()
+        self.histogram_query = blitzortung.service.histogram_query()
         self.check_count = 0
         self.strikes_grid_cache = blitzortung.cache.ObjectCache(ttl_seconds=20)
         self.histogram_cache = blitzortung.cache.ObjectCache(ttl_seconds=60)
