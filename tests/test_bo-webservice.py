@@ -43,23 +43,13 @@ class BoWebservice(FunkLoadTestCase):
         self.assert_('count' in response, 'response contains element "count"')
         self.assert_(isinstance(response['count'], int), '"count" element has int type')
 
-    def test_cached(self):
-        ret = self.call_service('cached', 0)
-        self.logd('ret: %s' % str(ret).strip())
-        response = self.get_response()
-
-    def test_get_strokes(self):
+    def test_get_strikes(self):
         ret = self.call_service('get_strokes', 60)
         self.logd('ret: %s' % str(ret).strip())
         response = self.get_response()
 
-    def test_get_strokes_raster(self):
+    def test_get_strikes_raster(self):
         ret = self.call_service('get_strokes_raster', 60, 10000, 1)
-        self.logd('ret: %s' % str(ret).strip())
-        response = self.get_response()
-
-    def test_get_strokes_raster_uncached(self):
-        ret = self.call_service('get_strokes_raster_uncached', 60, 10000, 1)
         self.logd('ret: %s' % str(ret).strip())
         response = self.get_response()
 

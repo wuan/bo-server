@@ -1,43 +1,45 @@
 #!/usr/bin/env python
 
 from __future__ import print_function
+
 import datetime
+from optparse import OptionParser
 import requests
 import json
 import time
 
 
-def get_strikes(time_interval=60):
+def get_strikes(target_url, time_interval=60, show_results=False):
     next_index = 0
 
     session = requests.Session()
 
-    while True:
-        request = {
-            'jsonrpc': 2.0,
-            'method': 'get_strikes',
-            'params': [time_interval, next_index],
-            'id': 123
-        }
+#    while True:
+    request = {
+        'jsonrpc': 2.0,
+        'method': 'get_strikes',
+        'params': [time_interval, next_index],
+        'id': 123
+    }
 
-        response = session.post('http://localhost:7080/', data=json.dumps(request)).json()
+    response = session.post(target_url, data=json.dumps(request)).json()
 
-        if 'result' in response:
-            result = response['result']
+    if show_results and 'result' in response:
+        result = response['result']
 
-            strikes = result['s']
-            reference_time = datetime.datetime.strptime(result['t'], "%Y%m%dT%H:%M:%S")
+        strikes = result['s']
+        reference_time = datetime.datetime.strptime(result['t'], "%Y%m%dT%H:%M:%S")
 
-            for strike in strikes:
-                print(reference_time - datetime.timedelta(seconds=strike[0]), strike[1], strike[2])
+        for strike in strikes:
+            print(reference_time - datetime.timedelta(seconds=strike[0]), strike[1], strike[2])
 
-            if 'next' in result:
-                next_index = result['next']
-
-        time.sleep(1)
+        if 'next' in result:
+            next_index = result['next']
 
 
-def get_strikes_grid(time_interval=10, grid_baselength=5000, minute_offset=0, region=1):
+
+def get_strikes_grid(target_url, time_interval=120000, grid_baselength=5000, minute_offset=0, region=1,
+                     show_results=False):
     session = requests.Session()
 
     request = {
@@ -47,18 +49,18 @@ def get_strikes_grid(time_interval=10, grid_baselength=5000, minute_offset=0, re
         'id': 123
     }
 
-    response = session.post('http://localhost:7080/', data=json.dumps(request)).json()
+    response = session.post(target_url, data=json.dumps(request)).json()
 
-    if 'result' in response:
+    if show_results and 'result' in response:
         result = response['result']
 
         if result:
-            print(result)
-            # grid_data = result['r']
-        # reference_time = aniso8601.parse_datetime(result['t'])
+            grid_data = result['r']
+            reference_time = datetime.datetime.strptime(result['t'], '%Y%m%dT%H:%M:%S')
 
-        #	    for grid_element in grid_data:
-        #		print(grid_element[0], grid_element[1], grid_element[2], reference_time + datetime.timedelta(seconds=grid_element[3]))
+            for grid_element in grid_data:
+                print(grid_element[0], grid_element[1], grid_element[2],
+                      reference_time + datetime.timedelta(seconds=grid_element[3]))
 
         else:
             print("no result!", response)
@@ -75,9 +77,39 @@ def check():
     print(response)
 
 
-get_strikes_grid()
-#get_strikes()
-# check()
+method_map = {
+    'strikes_grid': get_strikes_grid,
+    'strikes': get_strikes,
+    'check': check
+}
+
+parser = OptionParser()
+
+parser.add_option("-m", "--method-name", dest="method_name", help="selected method name", type='string',
+                  default=method_map.keys()[0])
+
+parser.add_option("-i", "--time-interval", dest="time_interval", type="int", default=None)
+parser.add_option("-s", "--show-results", dest="show_results", action="store_true", default=False)
+parser.add_option("-t", "--show-timing", dest="show_timing", action="store_true", default=False)
+
+(options, args) = parser.parse_args()
+
+method = method_map[options.method_name]
+
+option_keys = ['time_interval', 'show_results']
+option_map = {}
+
+for option_key in option_keys:
+    if hasattr(options, option_key):
+        value = getattr(options, option_key)
+        if value is not None:
+            option_map[option_key] = value
+
+for arg in args:
+    reference_time = time.time()
+    method(arg, **option_map)
+    if options.show_timing:
+        print(" %.03fs %s" % (time.time() - reference_time, arg))
 
 
 
