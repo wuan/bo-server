@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+# -*- coding: utf8 -*-
+
+import datetime
+import pytz
+import blitzortung.db
+import blitzortung.clustering
+import blitzortung.builder
+
+
+def detect_clusters(strikes_db, cluster_db, start_time, duration):
+    end_time = start_time + duration
+    time_interval = blitzortung.db.query.TimeInterval(start_time, end_time)
+    strikes = strikes_db.select(time_interval)
+
+    clustering = blitzortung.clustering.Clustering(blitzortung.builder.StrikeCluster())
+
+    clusters = clustering.build_clusters(strikes, time_interval)
+
+    for cluster in clusters:
+        cluster_db.insert(cluster)
+
+    cluster_db.commit()
+
+strikes_db = blitzortung.db.strike()
+latest_stroke_time = strikes_db.get_latest_time()
+cluster_db = blitzortung.db.strike_cluster()
+latest_cluster_time = cluster_db.get_latest_time()
+
+if latest_cluster_time is None:
+    now = datetime.datetime.utcnow()
+    now = now.replace(tzinfo=pytz.UTC)
+
+    latest_cluster_time = now.replace(second=0, microsecond=0) - datetime.timedelta(minutes=240)
+
+    print("start @ {}".format(latest_cluster_time))
+
+duration = datetime.timedelta(minutes=10)
+time_step = datetime.timedelta(minutes=1)
+
+while True:
+    if latest_cluster_time is not None:
+        if latest_cluster_time + time_step > latest_stroke_time:
+            break
+
+    latest_cluster_time += time_step
+
+    detect_clusters(strikes_db, cluster_db, latest_cluster_time - duration, duration)
