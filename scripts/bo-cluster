@@ -1,8 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf8 -*-
 
+import logging
 import datetime
 import pytz
+
+from optparse import OptionParser
+from lockfile.pidlockfile import PIDLockFile
+
 import blitzortung.db
 import blitzortung.clustering
 import blitzortung.builder
@@ -22,27 +27,52 @@ def detect_clusters(strikes_db, cluster_db, start_time, duration):
 
     cluster_db.commit()
 
-strikes_db = blitzortung.db.strike()
-latest_stroke_time = strikes_db.get_latest_time()
-cluster_db = blitzortung.db.strike_cluster()
-latest_cluster_time = cluster_db.get_latest_time()
 
-if latest_cluster_time is None:
-    now = datetime.datetime.utcnow()
-    now = now.replace(tzinfo=pytz.UTC)
+if __name__ == "__main__":
+    parser = OptionParser()
+    parser.add_option("-v", "--verbose", dest="verbose", action="store_true", help="verbose output")
+    parser.add_option("-d", "--debug", dest="debug", action="store_true", help="debug output")
+    parser.add_option("--startdate", dest="start_date", default=None, help="import start date")
 
-    latest_cluster_time = now.replace(second=0, microsecond=0) - datetime.timedelta(minutes=240)
+    (options, args) = parser.parse_args()
 
-    print("start @ {}".format(latest_cluster_time))
+    lock = PIDLockFile('/tmp/.bo-cluster.pid', timeout=10)
 
-duration = datetime.timedelta(minutes=10)
-time_step = datetime.timedelta(minutes=1)
+    with lock:
+        root_logger = logging.getLogger()
+        log_handler = logging.StreamHandler()
 
-while True:
-    if latest_cluster_time is not None:
-        if latest_cluster_time + time_step > latest_stroke_time:
-            break
+        log_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
+        root_logger.addHandler(log_handler)
+        if options.verbose:
+            root_logger.setLevel(logging.INFO)
+        if options.debug:
+            root_logger.setLevel(logging.DEBUG)
 
-    latest_cluster_time += time_step
+        strikes_db = blitzortung.db.strike()
+        latest_stroke_time = strikes_db.get_latest_time()
+        cluster_db = blitzortung.db.strike_cluster()
+        latest_cluster_time = cluster_db.get_latest_time()
 
-    detect_clusters(strikes_db, cluster_db, latest_cluster_time - duration, duration)
+        if latest_cluster_time is None:
+            if options.start_date is None:
+                now = datetime.datetime.utcnow()
+                now = now.replace(tzinfo=pytz.UTC)
+
+                latest_cluster_time = now.replace(second=0, microsecond=0) - datetime.timedelta(minutes=240)
+            else:
+                latest_cluster_time = datetime.datetime.strptime(options.start_date, "%Y%m%d")
+
+            print("start @ {}".format(latest_cluster_time))
+
+        duration = datetime.timedelta(minutes=10)
+        time_step = datetime.timedelta(minutes=1)
+
+        while True:
+            if latest_cluster_time is not None:
+                if latest_cluster_time + time_step > latest_stroke_time:
+                    break
+
+            latest_cluster_time += time_step
+
+            detect_clusters(strikes_db, cluster_db, latest_cluster_time - duration, duration)
