@@ -27,7 +27,6 @@ def detect_clusters(strikes_db, cluster_db, start_time, duration):
 
     cluster_db.commit()
 
-
 if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true", help="verbose output")
@@ -61,7 +60,7 @@ if __name__ == "__main__":
 
                 latest_cluster_time = now.replace(second=0, microsecond=0) - datetime.timedelta(minutes=240)
             else:
-                latest_cluster_time = datetime.datetime.strptime(options.start_date, "%Y%m%d")
+                latest_cluster_time = datetime.datetime.strptime(options.start_date, "%Y%m%d").replace(tzinfo=pytz.UTC)
 
             print("start @ {}".format(latest_cluster_time))
 

@@ -34,8 +34,14 @@ def import_strikes_for(region, start_time):
     strikes = strike_source.get_strikes_since(latest_time, region=region)
     query_time = time.time()
 
+    count = 0
     for strike in strikes:
         strike_db.insert(strike, region)
+
+        count += 1
+        if count % 10000 == 0:
+            logger.info("commit #{} @{}".format(count, strike.get_timestamp().date()))
+            strike_db.commit()
 
     strike_db.commit()
 
