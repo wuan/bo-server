@@ -40,7 +40,7 @@ def import_strikes_for(region, start_time):
 
         count += 1
         if count % 10000 == 0:
-            logger.info("commit #{} @{}".format(count, strike.get_timestamp().date()))
+            logger.info("commit #{} @{}".format(count, strike.get_timestamp()))
             strike_db.commit()
 
     strike_db.commit()
