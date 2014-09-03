@@ -42,16 +42,16 @@ def import_strikes_for(region, start_time):
 
     strike_group_size = 10000
     strike_count = 0
-    start_time = time.time()
+    global_start_time = start_time = time.time()
     for strike in strikes:
         strike_db.insert(strike, region)
 
         strike_count += 1
         if strike_count % strike_group_size == 0:
             strike_db.commit()
-            logger.info("commit #{} ({:.1f}/s) @{}".format(strike_count, strike_group_size / (time.time() - start_time), strike.get_timestamp()))
+            logger.info("commit #{} ({:.1f}/s) @{}".format(
+                strike_count, strike_group_size / (time.time() - start_time), strike.get_timestamp()))
             start_time = time.time()
-
 
     strike_db.commit()
 
@@ -62,7 +62,8 @@ def import_strikes_for(region, start_time):
     statsd_client.timing(stat_name + ".get", max(1, int((query_time - reference_time) * 1000)))
     statsd_client.timing(stat_name + ".insert", max(1, int((insert_time - query_time) * 1000)))
 
-    logger.info("imported %d strikes for region %d" % (strike_count, region))
+    logger.info("imported {} strikes ({:.1f}/s) for region {}".format(
+        strike_count, strike_count / (time.time() - global_start_time), region))
 
 
 def import_strikes(regions, start_time):
