@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf8 -*-
 
+import os
+import logging
 import datetime
 from optparse import OptionParser
 from lockfile.pidlockfile import PIDLockFile
@@ -11,8 +13,12 @@ import statsd
 
 import blitzortung.dataimport
 import blitzortung.db
+import blitzortung.logger
+from blitzortung import root_logger
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(os.path.basename(__file__))
+logger.parent = root_logger
+root_logger.addHandler(blitzortung.logger.create_console_handler())
 
 statsd_client = statsd.StatsClient('localhost', 8125, prefix='org.blitzortung.import')
 
@@ -138,14 +144,10 @@ if __name__ == "__main__":
     lock = PIDLockFile('/tmp/.bo-import.pid', timeout=10)
 
     with lock:
-        root_logger = logging.getLogger()
-        log_handler = logging.StreamHandler()
-        log_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s: %(message)s"))
-        root_logger.addHandler(log_handler)
-        if options.verbose:
-            root_logger.setLevel(logging.INFO)
         if options.debug:
             root_logger.setLevel(logging.DEBUG)
+        elif options.verbose:
+            root_logger.setLevel(logging.INFO)
         start_time = datetime.datetime.strptime(options.startdate, "%Y%m%d").replace(
             tzinfo=pytz.UTC) if options.startdate else None
 
