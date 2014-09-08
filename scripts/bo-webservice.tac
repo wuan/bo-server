@@ -55,7 +55,6 @@ import blitzortung.db.query
 import blitzortung.db.query_builder
 import blitzortung.service
 
-
 import sys
 
 if sys.version > '3':
@@ -220,11 +219,11 @@ class Blitzortung(jsonrpc.JSONRPC):
     def jsonrpc_get_strikes_around(self, longitude, latitude, minute_length, min_id=None):
         pass
 
-    def get_strikes_grid(self, minute_length, grid_baselength, minute_offset, region):
+    def get_strikes_grid(self, minute_length, grid_baselength, minute_offset, region, count_threshold):
         grid_parameters = grid[region].get_for(grid_baselength)
 
         grid_result, state = self.strike_grid_query.create(grid_parameters, minute_length, minute_offset,
-                                                           self.connection_pool, statsd_client)
+                                                           count_threshold, self.connection_pool, statsd_client)
 
         histogram_result = self.get_histogram(minute_length, minute_offset, region)
 
@@ -241,14 +240,16 @@ class Blitzortung(jsonrpc.JSONRPC):
         return self.jsonrpc_get_strikes_grid(request, minute_length, grid_base_length, minute_offset, region)
 
     @with_request
-    def jsonrpc_get_strikes_grid(self, request, minute_length, grid_base_length=10000, minute_offset=0, region=1):
+    def jsonrpc_get_strikes_grid(self, request, minute_length, grid_base_length=10000, minute_offset=0, region=1,
+                                 count_threshold=1):
         grid_base_length = self.__force_min(grid_base_length, 5000)
         minute_length = self.__force_range(minute_length, 0, 24 * 60)
         minute_offset = self.__force_range(minute_offset, -24 * 60 + minute_length, 0)
 
         response = self.strikes_grid_cache.get(self.get_strikes_grid, minute_length=minute_length,
                                                grid_baselength=grid_base_length,
-                                               minute_offset=minute_offset, region=region)
+                                               minute_offset=minute_offset, region=region,
+                                               count_threshold=count_threshold)
 
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
