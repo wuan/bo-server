@@ -14,11 +14,10 @@ import statsd
 import blitzortung.dataimport
 import blitzortung.db
 import blitzortung.logger
-from blitzortung import root_logger
 
 logger = logging.getLogger(os.path.basename(__file__))
-logger.parent = root_logger
-root_logger.addHandler(blitzortung.logger.create_console_handler())
+blitzortung.set_parent_logger(logger)
+blitzortung.add_log_handler(blitzortung.logger.create_console_handler())
 
 statsd_client = statsd.StatsClient('localhost', 8125, prefix='org.blitzortung.import')
 
@@ -150,9 +149,9 @@ if __name__ == "__main__":
 
     with lock:
         if options.debug:
-            root_logger.setLevel(logging.DEBUG)
+            blitzortung.set_log_level(logging.DEBUG)
         elif options.verbose:
-            root_logger.setLevel(logging.INFO)
+            blitzortung.set_log_level(logging.INFO)
         start_time = datetime.datetime.strptime(options.startdate, "%Y%m%d").replace(
             tzinfo=pytz.UTC) if options.startdate else None
 

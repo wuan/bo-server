@@ -267,6 +267,10 @@ class Blitzortung(jsonrpc.JSONRPC):
                                         region=region)
 
     @with_request
+    def jsonrpc_get_clusters(self, minute_length, minute_offset, interval_length, interval_offset):
+        pass
+
+    @with_request
     def jsonrpc_get_stations(self, request):
         stations_db = blitzortung.db.station()
 

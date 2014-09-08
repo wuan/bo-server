@@ -18,11 +18,12 @@ def main():
     strike_db = blitzortung.db.strike()
 
     end_time = datetime.datetime.utcnow()
-    start_time = end_time - datetime.timedelta(hours=24)
+    start_time = end_time - datetime.timedelta(hours=1)
     # set time range 
     time_range = blitzortung.db.query.TimeInterval(start_time, end_time)
 
     strikes = strike_db.select(time_range)
+    print len(strikes), "strikes"
 
     crs = ccrs.PlateCarree()
 
@@ -37,11 +38,11 @@ def main():
     
     plt.plot(x_coords, y_coords, marker='+', linestyle='', transform=crs)
 
-    resolution = '50m'
+    resolution = '10m'
     land = cfeature.NaturalEarthFeature('physical', 'land', resolution, edgecolor='none', facecolor=cfeature.COLORS['land'])
     ax.add_feature(land)
-    urban = cfeature.NaturalEarthFeature('cultural', 'urban_areas', resolution, edgecolor='none', facecolor='DarkSalmon')
-    ax.add_feature(urban)
+#    urban = cfeature.NaturalEarthFeature('cultural', 'urban_areas', resolution, edgecolor='none', facecolor='DarkSalmon')
+#    ax.add_feature(urban)
     rivers = cfeature.NaturalEarthFeature('physical', 'rivers_lake_centerlines', resolution, edgecolor=cfeature.COLORS['water'], facecolor='none')
     ax.add_feature(rivers)
     lakes = cfeature.NaturalEarthFeature('physical', 'lakes', resolution, edgecolor='face', facecolor=cfeature.COLORS['water'])

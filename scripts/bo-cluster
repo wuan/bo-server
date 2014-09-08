@@ -59,7 +59,7 @@ if __name__ == "__main__":
             root_logger.setLevel(logging.INFO)
 
         strikes_db = blitzortung.db.strike()
-        latest_stroke_time = strikes_db.get_latest_time()
+        latest_strike_time = strikes_db.get_latest_time()
         cluster_db = blitzortung.db.strike_cluster()
         latest_cluster_time = cluster_db.get_latest_time()
 
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         cluster_count = 0
         while True:
             if latest_cluster_time is not None:
-                if latest_cluster_time + time_step > latest_stroke_time:
+                if latest_cluster_time + time_step > latest_strike_time:
                     break
 
             latest_cluster_time += time_step
