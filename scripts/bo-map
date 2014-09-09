@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import matplotlib.pyplot as plt
 
 import cartopy.crs as ccrs
@@ -13,6 +15,7 @@ import time
 
 logger = logging.getLogger(__name__)
 
+
 def main():
     # open strike database
     strike_db = blitzortung.db.strike()
@@ -23,7 +26,7 @@ def main():
     time_range = blitzortung.db.query.TimeInterval(start_time, end_time)
 
     strikes = strike_db.select(time_range)
-    print len(strikes), "strikes"
+    print(len(strikes), "strikes")
 
     crs = ccrs.PlateCarree()
 
@@ -35,22 +38,25 @@ def main():
 
     x_coords = [strike.get_x() for strike in strikes]
     y_coords = [strike.get_y() for strike in strikes]
-    
+
     plt.plot(x_coords, y_coords, marker='+', linestyle='', transform=crs)
 
     resolution = '10m'
-    land = cfeature.NaturalEarthFeature('physical', 'land', resolution, edgecolor='none', facecolor=cfeature.COLORS['land'])
+    land = cfeature.NaturalEarthFeature('physical', 'land', resolution, edgecolor='none',
+                                        facecolor=cfeature.COLORS['land'])
     ax.add_feature(land)
-#    urban = cfeature.NaturalEarthFeature('cultural', 'urban_areas', resolution, edgecolor='none', facecolor='DarkSalmon')
-#    ax.add_feature(urban)
-    rivers = cfeature.NaturalEarthFeature('physical', 'rivers_lake_centerlines', resolution, edgecolor=cfeature.COLORS['water'], facecolor='none')
+    rivers = cfeature.NaturalEarthFeature('physical', 'rivers_lake_centerlines', resolution,
+                                          edgecolor=cfeature.COLORS['water'], facecolor='none')
     ax.add_feature(rivers)
-    lakes = cfeature.NaturalEarthFeature('physical', 'lakes', resolution, edgecolor='face', facecolor=cfeature.COLORS['water'])
+    lakes = cfeature.NaturalEarthFeature('physical', 'lakes', resolution, edgecolor='face',
+                                         facecolor=cfeature.COLORS['water'])
     ax.add_feature(lakes)
-    countries = cfeature.NaturalEarthFeature('cultural', 'admin_0_countries', resolution, edgecolor='gray', facecolor='none')
+    countries = cfeature.NaturalEarthFeature('cultural', 'admin_0_countries', resolution, edgecolor='gray',
+                                             facecolor='none')
     ax.add_feature(countries)
 
     plt.show()
+
 
 if __name__ == '__main__':
     main()

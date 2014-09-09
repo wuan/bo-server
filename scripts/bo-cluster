@@ -12,6 +12,10 @@ You should have received a copy of the GNU Affero General Public License along w
 
 """
 
+from __future__ import print_function
+
+import json
+
 import os
 import logging
 import time
@@ -20,6 +24,7 @@ import pytz
 
 from optparse import OptionParser
 from lockfile.pidlockfile import PIDLockFile
+from shapely.geometry import mapping
 
 from blitzortung import root_logger
 import blitzortung.db
@@ -42,14 +47,7 @@ def detect_clusters(strikes_db, start_time, duration):
     return clustering.build_clusters(strikes, time_interval)
 
 
-if __name__ == "__main__":
-    parser = OptionParser()
-    parser.add_option("-v", "--verbose", dest="verbose", action="store_true", help="verbose output")
-    parser.add_option("-d", "--debug", dest="debug", action="store_true", help="debug output")
-    parser.add_option("--startdate", dest="start_date", default=None, help="import start date")
-
-    (options, args) = parser.parse_args()
-
+def import_clusters(options):
     lock = PIDLockFile('/tmp/.bo-cluster.pid', timeout=10)
 
     with lock:
@@ -101,3 +99,38 @@ if __name__ == "__main__":
 
         logger.info("#{} clusters detected ({:.1f}/s)".format(
             cluster_count, cluster_count / (time.time() - global_start_time)))
+
+
+def dump_clusters(options):
+    cluster_db = blitzortung.db.strike_cluster()
+
+    latest_time = cluster_db.get_latest_time()
+
+    interval_duration = datetime.timedelta(minutes=10)
+    clusters = cluster_db.select(latest_time, interval_duration, 1, datetime.timedelta(seconds=0))
+
+    cluster_data = tuple(
+        (mapping(cluster.get_shape())['coordinates'], cluster.get_strike_count()) for cluster in clusters)
+
+    output = {
+        'timestamp': latest_time.strftime('%Y%m%d %H%M%S'),
+        'interval_seconds': int(interval_duration.total_seconds()),
+        'clusters': cluster_data}
+
+    print(json.dumps(output))
+
+
+if __name__ == "__main__":
+    parser = OptionParser()
+    parser.add_option("-m", "--mode", dest="mode", default="dump", help="mode: 'dump', 'import'")
+    parser.add_option("-v", "--verbose", dest="verbose", action="store_true", help="verbose output")
+    parser.add_option("-d", "--debug", dest="debug", action="store_true", help="debug output")
+    parser.add_option("--startdate", dest="start_date", default=None, help="import start date")
+
+    (options, args) = parser.parse_args()
+
+    if options.mode == 'dump':
+        dump_clusters(options)
+    elif options.mode == 'import':
+        import_clusters(options)
+
