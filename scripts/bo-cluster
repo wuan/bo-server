@@ -112,6 +112,9 @@ def dump_clusters(options):
     cluster_db = blitzortung.db.strike_cluster()
 
     latest_time = cluster_db.get_latest_time()
+    if latest_time is None:
+       print("no clusters found")
+       return
 
     interval_duration = datetime.timedelta(minutes=10)
     clusters = cluster_db.select(latest_time, interval_duration, 1, datetime.timedelta(seconds=0))
