@@ -97,13 +97,14 @@ def import_clusters(options):
                     cluster_db.commit()
                     group_timedelta = (time.time() - start_time)
                     logger.info("commit #{} ({:.1f} clusters/s, {:.1f} strikes/s) @{}".format(
-                        cluster_count, cluster_group_size / group_timedelta, cluster_group_strike_count / group_timedelta, cluster.get_timestamp()))
+                        cluster_count, cluster_group_size / group_timedelta,
+                        cluster_group_strike_count / group_timedelta, cluster.get_timestamp()))
                     start_time = time.time()
                     cluster_group_strike_count = 0
 
         cluster_db.commit()
-	
-	time_delta = time.time() - global_start_time
+
+        time_delta = time.time() - global_start_time
         logger.info("#{} clusters detected ({:.1f} cluster/s, {:.1f} strikes/s)".format(
             cluster_count, cluster_count / time_delta, strike_count / time_delta))
 
@@ -113,8 +114,8 @@ def dump_clusters(options):
 
     latest_time = cluster_db.get_latest_time()
     if latest_time is None:
-       print("no clusters found")
-       return
+        print("no clusters found")
+        return
 
     interval_duration = datetime.timedelta(minutes=10)
     clusters = cluster_db.select(latest_time, interval_duration, 1, datetime.timedelta(seconds=0))
@@ -126,21 +127,23 @@ def dump_clusters(options):
     interval_seconds = int(interval_duration.total_seconds())
     if options.json_output:
         output = {
-                'timestamp': reference_time.strftime('%Y%m%d %H%M%S'),
-                'interval_seconds': interval_seconds,
-                'clusters': cluster_data}
+            'timestamp': reference_time.strftime('%Y%m%d %H%M%S'),
+            'interval_seconds': interval_seconds,
+            'clusters': cluster_data}
 
         print(json.dumps(output))
     else:
         print("{} clusters {} seconds before {}".format(len(cluster_data), interval_seconds, str(reference_time)))
         for cluster in cluster_data:
-            print("{:6d} strikes in {}".format(cluster[1], ", ".join([" ".join([str(coordinate) for coordinate in coordinate_pair]) for coordinate_pair in cluster[0]])))
+            print("{:6d} strikes in {}".format(cluster[1], ", ".join(
+                [" ".join([str(coordinate) for coordinate in coordinate_pair]) for coordinate_pair in cluster[0]])))
 
 
 if __name__ == "__main__":
     parser = OptionParser()
     parser.add_option("-m", "--mode", dest="mode", default="dump", help="mode: 'dump', 'import'")
-    parser.add_option("-j", "--json-output", dest="json_output", action="store_true", help="switch to JSON output format")
+    parser.add_option("-j", "--json-output", dest="json_output", action="store_true",
+                      help="switch to JSON output format")
     parser.add_option("-v", "--verbose", dest="verbose", action="store_true", help="verbose output")
     parser.add_option("-d", "--debug", dest="debug", action="store_true", help="debug output")
     parser.add_option("--startdate", dest="start_date", default=None, help="import start date")
