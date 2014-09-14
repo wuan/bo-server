@@ -2,6 +2,7 @@
 
 import sys
 import os
+import logging
 
 import datetime
 import pytz
@@ -9,6 +10,11 @@ import subprocess
 
 import blitzortung
 import blitzortung.dataimport
+
+logger = logging.getLogger(os.path.basename(__file__))
+blitzortung.set_parent_logger(logger)
+blitzortung.add_log_handler(blitzortung.logger.create_console_handler())
+blitzortung.set_log_level(logging.DEBUG)
 
 region = 1
 
@@ -34,9 +40,10 @@ if stations:
         station_ids.append(station.get_number())
 
 for index, station_id in enumerate(station_ids):
+    logger.info("station {}".format(station_id))
+
     raw_data_source = blitzortung.dataimport.raw()
     raw_data = raw_data_source.get_raw_data_since(reference_time, region=region, station_id=station_id)
-    print(raw_data)
 
     if raw_data:
         count = 0
