@@ -14,7 +14,7 @@ import blitzortung.dataimport
 logger = logging.getLogger(os.path.basename(__file__))
 blitzortung.set_parent_logger(logger)
 blitzortung.add_log_handler(blitzortung.logger.create_console_handler())
-blitzortung.set_log_level(logging.DEBUG)
+blitzortung.set_log_level(logging.INFO)
 
 region = 1
 
@@ -27,7 +27,7 @@ now = datetime.datetime.utcnow()
 reference_time = (now - datetime.timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
 reference_time = reference_time.replace(tzinfo=pytz.UTC)
 
-print(reference_time)
+logger.debug("reference time: {}".format(reference_time))
 
 target_folder_for_day_name = reference_time.strftime(target_folder_name)
 if not os.path.exists(target_folder_for_day_name):
@@ -40,27 +40,21 @@ if stations:
         station_ids.append(station.get_number())
 
 for index, station_id in enumerate(station_ids):
-    logger.info("station {}".format(station_id))
 
     raw_data_source = blitzortung.dataimport.raw()
     raw_data = raw_data_source.get_raw_data_since(reference_time, region=region, station_id=station_id)
 
     if raw_data:
         count = 0
-        bo_data = subprocess.Popen(['bo-data', '-o', os.path.join(target_folder_name, str(station_id) + '_%Y%m%d.bor')],
-                                   stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+
         check_date = True
-        for raw_line in raw_data:
-            fields = raw_line.split(" ")
+        for raw_event in raw_data:
             if check_date:
-                if datetime.datetime.strptime(fields[0], "%Y-%m-%d").date() != reference_time.date():
+                if raw_event.get_timestamp().date() != reference_time.date():
                     # date mismatch -> stop adding data
                     break
                 check_date = False
-            bo_data.stdin.write(raw_line + '\n')
             count += 1
-        (_, stderr) = bo_data.communicate()
 
-        if stderr:
-            print
-            index, station_id, count, stderr.strip()
+        if count > 0:
+           logger.info("station {}: {} events".format(station_id, count))
