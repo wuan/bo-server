@@ -61,9 +61,11 @@ if sys.version > '3':
     long = int
 
 UTM_EU = pyproj.Proj(init='epsg:32633')  # UTM 33 N / WGS84
-UTM_USA = pyproj.Proj(init='epsg:32614')  # UTM 14 N / WGS84
-UTM_OC = pyproj.Proj(init='epsg:32755')  # UTM 55 S / WGS84
-
+UTM_NORTH_AMERICA = pyproj.Proj(init='epsg:32614')  # UTM 14 N / WGS84
+UTM_SOUTH_AMERICA = pyproj.Proj(init='epsg:32720')  # UTM 20 S / WGS84
+UTM_OCEANIA = pyproj.Proj(init='epsg:32755')  # UTM 55 S / WGS84
+UTM_ASIA = pyproj.Proj(init='epsg:32650')  # UTM 50 N / WGS84
+UTM_AFRICA = pyproj.Proj(init='epsg:32633')  # UTM 33 N / WGS84
 
 def connection_factory(*args, **kwargs):
     kwargs['connection_factory'] = psycopg2.extras.DictConnection
@@ -154,8 +156,12 @@ class TestRealm(object):
 
 
 grid = {1: blitzortung.geom.GridFactory(-15, 40, 32, 70, UTM_EU),
-        2: blitzortung.geom.GridFactory(110, 180, -50, 0, UTM_OC),
-        3: blitzortung.geom.GridFactory(-140, -50, 10, 60, UTM_USA)}
+        2: blitzortung.geom.GridFactory(110, 180, -50, 0, UTM_OCEANIA),
+        3: blitzortung.geom.GridFactory(-140, -50, 10, 60, UTM_NORTH_AMERICA),
+        4: blitzortung.geom.GridFactory(85, 150, -10, 50, UTM_ASIA),
+        5: blitzortung.geom.GridFactory(-100, -30, -50, 20, UTM_SOUTH_AMERICA),
+        6: blitzortung.geom.GridFactory(-20, 50, -40, 40, UTM_AFRICA)
+}
 
 
 class Blitzortung(jsonrpc.JSONRPC):
