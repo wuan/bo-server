@@ -5,6 +5,7 @@ blitzortung-server (1.4.0) unstable; urgency=low
   * fully asynchronous webservice db backend
   * strike clustering
   * streaming strike import
+  * added new regions to service
 
  -- Andreas Wuerl <blitzortung@tryb.de>  Thu, 14 Aug 2014 16:31:05 +0200
 
