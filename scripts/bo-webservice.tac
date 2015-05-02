@@ -231,7 +231,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         grid_result, state = self.strike_grid_query.create(grid_parameters, minute_length, minute_offset,
                                                            count_threshold, self.connection_pool, statsd_client)
 
-        histogram_result = self.get_histogram(minute_length, minute_offset, region)
+        histogram_result = self.get_histogram(minute_length, minute_offset, envelope=grid_parameters)
 
         combined_result = self.strike_grid_query.combine_result(grid_result, histogram_result, state)
 
@@ -265,12 +265,13 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         return response
 
-    def get_histogram(self, minute_length, minute_offset, region=None):
+    def get_histogram(self, minute_length, minute_offset, region=None, envelope=None):
         return self.histogram_cache.get(self.histogram_query.create,
                                         connection=self.connection_pool,
                                         minute_length=minute_length,
                                         minute_offset=minute_offset,
-                                        region=region)
+                                        region=region,
+                                        envelope=envelope)
 
     @with_request
     def jsonrpc_get_clusters(self, minute_length, minute_offset, interval_length, interval_offset):
