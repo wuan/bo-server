@@ -247,7 +247,7 @@ class Blitzortung(jsonrpc.JSONRPC):
 
     @with_request
     def jsonrpc_get_strikes_grid(self, request, minute_length, grid_base_length=10000, minute_offset=0, region=1,
-                                 count_threshold=1):
+                                 count_threshold=0):
         grid_base_length = self.__force_min(grid_base_length, 5000)
         minute_length = self.__force_range(minute_length, 0, 24 * 60)
         minute_offset = self.__force_range(minute_offset, -24 * 60 + minute_length, 0)
@@ -259,8 +259,8 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
-        print('"get_strikes_grid(%d, %d, %d, %d)" "%.1f%%" %s "%s"' % (
-            minute_length, grid_base_length, minute_offset, region, self.strikes_grid_cache.get_ratio() * 100, client,
+        print('"get_strikes_grid(%d, %d, %d, %d, >%d)" "%.1f%%" %s "%s"' % (
+            minute_length, grid_base_length, minute_offset, region, count_threshold, self.strikes_grid_cache.get_ratio() * 100, client,
             user_agent))
 
         return response
