@@ -164,11 +164,11 @@ if __name__ == '__main__':
     strike_db.set_timezone(tz)
 
     # set time range
-    time_range = blitzortung.db.query.TimeInterval(start_time, end_time)
+    time_interval = blitzortung.db.query.TimeInterval(start_time, end_time)
 
     # set query parameters
-    limit = blitzortung.db.query.Limit(5)
-    order = blitzortung.db.query.Order('timestamp')
+    limit = 5
+    order = 'timestamp'
 
     grid = prepare_grid_if_applicable(options, area)
 
@@ -176,7 +176,7 @@ if __name__ == '__main__':
     timer = blitzortung.util.Timer()
 
     if grid:
-        grid_result = strike_db.select_grid(grid, time_range)
+        grid_result = strike_db.select_grid(grid, time_interval=time_interval)
 
         select_time = timer.lap()
 
@@ -184,7 +184,7 @@ if __name__ == '__main__':
         sys.stderr.write('received grid data in %.3f seconds\n' % (select_time))
 
     else:
-        strikes = strike_db.select(time_range, area, order)
+        strikes = strike_db.select(time_interval=time_interval, geometry=area, order=order)
 
 
         precision_factor = math.pow(10.0, options.precision)
