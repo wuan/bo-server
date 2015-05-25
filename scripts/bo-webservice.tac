@@ -22,7 +22,6 @@ except ReactorAlreadyInstalledError:
     pass
 
 from twisted.internet import defer
-from twisted.internet.error import ReactorAlreadyInstalledError
 from txjsonrpc.web.jsonrpc import with_request
 
 from zope.interface import Interface, implements
@@ -70,6 +69,7 @@ UTM_SOUTH_AMERICA = pyproj.Proj(init='epsg:32720')  # UTM 20 S / WGS84
 UTM_OCEANIA = pyproj.Proj(init='epsg:32755')  # UTM 55 S / WGS84
 UTM_ASIA = pyproj.Proj(init='epsg:32650')  # UTM 50 N / WGS84
 UTM_AFRICA = pyproj.Proj(init='epsg:32633')  # UTM 33 N / WGS84
+
 
 def connection_factory(*args, **kwargs):
     kwargs['connection_factory'] = psycopg2.extras.DictConnection
@@ -159,12 +159,13 @@ class TestRealm(object):
             raise KeyError('none of the requested interfaces is supported')
 
 
-grid = {1: blitzortung.geom.GridFactory(-15, 40, 32, 70, UTM_EU),
-        2: blitzortung.geom.GridFactory(110, 180, -50, 0, UTM_OCEANIA),
-        3: blitzortung.geom.GridFactory(-140, -50, 10, 60, UTM_NORTH_AMERICA),
-        4: blitzortung.geom.GridFactory(85, 150, -10, 50, UTM_ASIA),
-        5: blitzortung.geom.GridFactory(-100, -30, -50, 20, UTM_SOUTH_AMERICA),
-        6: blitzortung.geom.GridFactory(-20, 50, -40, 40, UTM_AFRICA)
+grid = {
+    1: blitzortung.geom.GridFactory(-15, 40, 32, 70, UTM_EU),
+    2: blitzortung.geom.GridFactory(110, 180, -50, 0, UTM_OCEANIA),
+    3: blitzortung.geom.GridFactory(-140, -50, 10, 60, UTM_NORTH_AMERICA),
+    4: blitzortung.geom.GridFactory(85, 150, -10, 50, UTM_ASIA),
+    5: blitzortung.geom.GridFactory(-100, -30, -50, 20, UTM_SOUTH_AMERICA),
+    6: blitzortung.geom.GridFactory(-20, 50, -40, 40, UTM_AFRICA)
 }
 
 
@@ -222,7 +223,6 @@ class Blitzortung(jsonrpc.JSONRPC):
     @with_request
     def jsonrpc_get_strokes(self, request, minute_length, id_or_offset=0):
         return self.jsonrpc_get_strikes(request, minute_length, id_or_offset)
-
 
     @with_request
     def jsonrpc_get_strikes(self, request, minute_length, id_or_offset=0):
@@ -282,8 +282,8 @@ class Blitzortung(jsonrpc.JSONRPC):
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
         print('"get_strikes_grid(%d, %d, %d, %d, >%d)" "%.1f%%" %s "%s"' % (
-            minute_length, grid_base_length, minute_offset, region, count_threshold, self.strikes_grid_cache.get_ratio() * 100, client,
-            user_agent))
+            minute_length, grid_base_length, minute_offset, region, count_threshold,
+            self.strikes_grid_cache.get_ratio() * 100, client, user_agent))
 
 	self.__check_period()
         self.current_data['get_strikes_grid'].append((minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
