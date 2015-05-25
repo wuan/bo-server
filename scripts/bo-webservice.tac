@@ -44,6 +44,7 @@ import pytz
 import pyproj
 import statsd
 import json
+import collections
 
 statsd_client = statsd.StatsClient('localhost', 8125, prefix='org.blitzortung.service')
 
@@ -183,7 +184,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         self.histogram_cache = blitzortung.cache.ObjectCache(ttl_seconds=60)
         self.test = None
 	self.current_period = self.__current_period()
-	self.current_data = []
+	self.current_data = collections.defaultdict(list)
 
     addSlash = True
 
@@ -200,7 +201,7 @@ class Blitzortung(jsonrpc.JSONRPC):
 	    
     def __restart_period(self):
 	self.current_period = self.__current_period()
-	self.current_data = []
+	self.current_data = collections.defaultdict(list)
 
     @staticmethod
     def __force_min(number, min_number):
@@ -285,7 +286,7 @@ class Blitzortung(jsonrpc.JSONRPC):
             user_agent))
 
 	self.__check_period()
-        self.current_data.append((minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
+        self.current_data['get_strikes_grid'].append((minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
 
         return response
 
