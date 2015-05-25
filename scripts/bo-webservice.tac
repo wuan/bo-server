@@ -193,11 +193,9 @@ class Blitzortung(jsonrpc.JSONRPC):
 	return datetime.datetime.utcnow().replace(second=0, microsecond=0, tzinfo=pytz.UTC)
 
     def __check_period(self):
-        print('check', self.current_period, self.__current_period())
         if self.current_period != self.__current_period():
 	    self.current_data['timestamp'] = int(self.current_period.strftime("%s"))
 	    with open(os.path.join(log_directory, self.current_period.strftime("%Y%m%d-%H%M.json")), 'w') as output_file:
-	        print('write {} entries'.format(len(self.current_data)))
 	        output_file.write(json.dumps(self.current_data))
 	    self.__restart_period()
 	    
@@ -237,7 +235,6 @@ class Blitzortung(jsonrpc.JSONRPC):
         histogram_result = self.get_histogram(minute_length, minute_offset)
 
         combined_result = self.strike_query.combine_result(strikes_result, histogram_result, state)
-        print(combined_result)
 
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")

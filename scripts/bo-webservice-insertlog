@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import sys
-import shlex
+import os
 import glob
 import socket
 import logging
@@ -10,6 +12,8 @@ from optparse import OptionParser
 
 import datetime
 import pytz
+import json
+import collections
 
 import operator
 
@@ -41,79 +45,57 @@ if options.debug:
 
 geoip = GeoIP.open('/etc/alternatives/GeoIPCity.dat', GeoIP.GEOIP_STANDARD)
 
-service_log = blitzortung.db.servicelog()
-
-latest_time = service_log.get_latest_time()
+latest_time = None
 logger.debug("latest time %s" % latest_time)
 
-log_file_names = {}
-base_path = '/var/log/blitzortung/webservice.log'
-for log_file_name in glob.glob(base_path + '*'):
-    if log_file_name != base_path:
-        parts = [int(part) for part in log_file_name[len(base_path) + 1:].split('_')]
-        date = datetime.date(parts[0], parts[1], parts[2])
-    else:
-        date = datetime.datetime.utcnow().date()
-    log_file_names[date] = log_file_name
+log_file_name = '/var/log/blitzortung/webservice.log'
 
-log_file_dates = log_file_names.keys()
+json_file_names = glob.glob('/var/log/blitzortung/*.json')
 
-log_file_dates.sort()
+json_file_names.sort()
 
-logger.debug("# of log files: %d" % len(log_file_dates))
+servicelog_total = blitzortung.db.servicelog_total()
+servicelog_version = blitzortung.db.servicelog_version()
+servicelog_country = blitzortung.db.servicelog_country()
 
-number_of_inserted_entries = 0
+for json_file_name in json_file_names: 
+    with open(json_file_name, 'r') as json_file:
+    	
+        data = json.load(json_file)
 
-for log_file_date in log_file_dates:
-    log_file_name = log_file_names[log_file_date]
-    if latest_time is None or latest_time.date() <= log_file_date:
+	timestamp = datetime.datetime.fromtimestamp(data['timestamp'])
 
-        with open(log_file_name, 'r') as log_file:
+	total_count = len(data['get_strikes_grid'])
+	print(timestamp.strftime("%Y-%m-%d %H:%M:%S"), total_count )
 
-            for line in log_file:
-                try:
-                    fields = shlex.split(line)
+	versions = collections.defaultdict(int)
+	countries = collections.defaultdict(int)
 
-                    if len(fields) >= 6:
-                        remote_address = fields[5]
-                        if is_valid_ip_address(remote_address):
-                            date = fields[0]
-                            time = fields[1]
-                            timestamp = datetime.datetime.strptime(date + ' ' + time[:-5], '%Y-%m-%d %H:%M:%S').replace(
-                                tzinfo=pytz.UTC)
-                            if latest_time is None or timestamp > latest_time:
-                                logger.debug("add line: " + line.strip())
-                                user_agent = fields[6]
-                                version = None
-                                version_prefix = 'bo-android-'
-                                if user_agent.startswith(version_prefix):
-                                    version = int(user_agent[len(version_prefix):])
+	for entry in data['get_strikes_grid']:
+	    remote_address = entry[5]
+	    if is_valid_ip_address(remote_address):
+		user_agent = entry[6]
+		version = "n/a"
+		version_prefix = 'bo-android-'
+		if user_agent and user_agent.startswith(version_prefix):
+		    version = int(user_agent[len(version_prefix):])
+		versions[version] += 1
 
-                                geo_info = geoip.record_by_addr(remote_address)
-                                if geo_info:
-                                    city_name = geo_info['city']
-                                    if city_name:
-                                        city_name = city_name.decode('latin_1')
-                                    longitude = "%.4f" % geo_info['longitude']
-                                    latitude = "%.4f" % geo_info['latitude']
+		geo_info = geoip.record_by_addr(remote_address)
+		country_code = "n/a"
+		if geo_info:
+		    country_code = geo_info['country_code']
+		countries[country_code] += 1
 
-                                    country_name = geo_info['country_name']
-                                    if country_name:
-                                        country_name = country_name.decode('latin_1')
-                                else:
-                                    city_name = None
-                                    country_name = None
-                                    longitude = None
-                                    latitude = None
-                                service_log.insert(timestamp, remote_address, version, city_name, country_name,
-                                                   longitude,
-                                                   latitude)
-                                number_of_inserted_entries += 1
-                except ValueError:
-                    continue
-    else:
-        logger.debug("skip file " + log_file_name)
-service_log.commit()
+	servicelog_total.insert(timestamp, total_count)
 
-print "inserted", number_of_inserted_entries, "entries since", latest_time 
+	for version, version_count in versions.items():
+	    servicelog_version.insert(timestamp, version, version_count)
+	for country, country_count in countries.items():
+	    servicelog_country.insert(timestamp, country, country_count)
 
+    os.unlink(json_file_name)
+
+servicelog_total.commit()
+servicelog_version.commit()
+servicelog_country.commit()
