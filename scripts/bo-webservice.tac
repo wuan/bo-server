@@ -39,8 +39,11 @@ from txjsonrpc.web import jsonrpc
 
 import os
 import time
+import datetime
+import pytz
 import pyproj
 import statsd
+import json
 
 statsd_client = statsd.StatsClient('localhost', 8125, prefix='org.blitzortung.service')
 
@@ -169,8 +172,9 @@ class Blitzortung(jsonrpc.JSONRPC):
     An example object to be published.
     """
 
-    def __init__(self, db_connection_pool):
+    def __init__(self, db_connection_pool, log_directory):
         self.connection_pool = db_connection_pool
+	self.log_directory = log_directory
         self.strike_query = blitzortung.service.strike_query()
         self.strike_grid_query = blitzortung.service.strike_grid_query()
         self.histogram_query = blitzortung.service.histogram_query()
@@ -178,8 +182,25 @@ class Blitzortung(jsonrpc.JSONRPC):
         self.strikes_grid_cache = blitzortung.cache.ObjectCache(ttl_seconds=20)
         self.histogram_cache = blitzortung.cache.ObjectCache(ttl_seconds=60)
         self.test = None
+	self.current_period = self.__current_period()
+	self.current_data = []
 
     addSlash = True
+
+    def __current_period(self):
+	return datetime.datetime.utcnow().replace(second=0, microsecond=0, tzinfo=pytz.UTC)
+
+    def __check_period(self):
+        print('check', self.current_period, self.__current_period())
+        if self.current_period != self.__current_period():
+	    with open(os.path.join(log_directory, self.current_period.strftime("%Y%m%d-%H%M.json")), 'w') as output_file:
+	        print('write {} entries'.format(len(self.current_data)))
+	        output_file.write(json.dumps(self.current_data))
+	    self.__restart_period()
+	    
+    def __restart_period(self):
+	self.current_period = self.__current_period()
+	self.current_data = []
 
     @staticmethod
     def __force_min(number, min_number):
@@ -263,6 +284,9 @@ class Blitzortung(jsonrpc.JSONRPC):
             minute_length, grid_base_length, minute_offset, region, count_threshold, self.strikes_grid_cache.get_ratio() * 100, client,
             user_agent))
 
+	self.__check_period()
+        self.current_data.append((minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
+
         return response
 
     def get_histogram(self, minute_length, minute_offset, region=None, envelope=None):
@@ -326,7 +350,7 @@ if os.path.exists(log_directory):
     logfile = DailyLogFile("webservice.log", log_directory)
     application.setComponent(ILogObserver, FileLogObserver(logfile).emit)
 connection_pool = create_connection_pool()
-root = Blitzortung(connection_pool)
+root = Blitzortung(connection_pool, log_directory)
 
 credentialFactory = DigestCredentialFactory("md5", "blitzortung.org")
 # Define the credential checker the application will be using and wrap the JSON-RPC resource.
