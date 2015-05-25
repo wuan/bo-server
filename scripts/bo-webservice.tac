@@ -194,6 +194,7 @@ class Blitzortung(jsonrpc.JSONRPC):
     def __check_period(self):
         print('check', self.current_period, self.__current_period())
         if self.current_period != self.__current_period():
+	    self.current_data['timestamp'] = int(self.current_period.strftime("%s"))
 	    with open(os.path.join(log_directory, self.current_period.strftime("%Y%m%d-%H%M.json")), 'w') as output_file:
 	        print('write {} entries'.format(len(self.current_data)))
 	        output_file.write(json.dumps(self.current_data))
@@ -241,7 +242,6 @@ class Blitzortung(jsonrpc.JSONRPC):
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
         print('"get_strikes(%d, %d)" %s "%s"' % (minute_length, id_or_offset, client, user_agent))
-        print(combined_result)
         return combined_result
 
     def jsonrpc_get_strikes_around(self, longitude, latitude, minute_length, min_id=None):
