@@ -78,7 +78,7 @@ for json_file_name in json_file_names:
 		version = "n/a"
 		version_prefix = 'bo-android-'
 		if user_agent and user_agent.startswith(version_prefix):
-		    version = int(user_agent[len(version_prefix):])
+		    version = int(user_agent[len(version_prefix):].split(' ')[0])
 		versions[version] += 1
 
 		geo_info = geoip.record_by_addr(remote_address)
