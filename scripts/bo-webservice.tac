@@ -176,7 +176,7 @@ class Blitzortung(jsonrpc.JSONRPC):
 
     def __init__(self, db_connection_pool, log_directory):
         self.connection_pool = db_connection_pool
-	self.log_directory = log_directory
+        self.log_directory = log_directory
         self.strike_query = blitzortung.service.strike_query()
         self.strike_grid_query = blitzortung.service.strike_grid_query()
         self.histogram_query = blitzortung.service.histogram_query()
@@ -184,24 +184,25 @@ class Blitzortung(jsonrpc.JSONRPC):
         self.strikes_grid_cache = blitzortung.cache.ObjectCache(ttl_seconds=20)
         self.histogram_cache = blitzortung.cache.ObjectCache(ttl_seconds=60)
         self.test = None
-	self.current_period = self.__current_period()
-	self.current_data = collections.defaultdict(list)
+        self.current_period = self.__current_period()
+        self.current_data = collections.defaultdict(list)
 
     addSlash = True
 
     def __current_period(self):
-	return datetime.datetime.utcnow().replace(second=0, microsecond=0, tzinfo=pytz.UTC)
+        return datetime.datetime.utcnow().replace(second=0, microsecond=0, tzinfo=pytz.UTC)
 
     def __check_period(self):
         if self.current_period != self.__current_period():
-	    self.current_data['timestamp'] = int(self.current_period.strftime("%s"))
-	    with open(os.path.join(log_directory, self.current_period.strftime("%Y%m%d-%H%M.json")), 'w') as output_file:
-	        output_file.write(json.dumps(self.current_data))
-	    self.__restart_period()
-	    
+            self.current_data['timestamp'] = int(self.current_period.strftime("%s"))
+            with open(os.path.join(log_directory, self.current_period.strftime("%Y%m%d-%H%M.json")),
+                      'w') as output_file:
+                output_file.write(json.dumps(self.current_data))
+            self.__restart_period()
+
     def __restart_period(self):
-	self.current_period = self.__current_period()
-	self.current_data = collections.defaultdict(list)
+        self.current_period = self.__current_period()
+        self.current_data = collections.defaultdict(list)
 
     @staticmethod
     def __force_min(number, min_number):
@@ -282,8 +283,9 @@ class Blitzortung(jsonrpc.JSONRPC):
             minute_length, grid_base_length, minute_offset, region, count_threshold,
             self.strikes_grid_cache.get_ratio() * 100, client, user_agent))
 
-	self.__check_period()
-        self.current_data['get_strikes_grid'].append((minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
+        self.__check_period()
+        self.current_data['get_strikes_grid'].append(
+            (minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
 
         return response
 

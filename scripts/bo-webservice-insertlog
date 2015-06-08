@@ -7,16 +7,12 @@ import os
 import glob
 import socket
 import logging
-import GeoIP
 from optparse import OptionParser
-
 import datetime
-import pytz
 import json
 import collections
 
-import operator
-
+import GeoIP
 import blitzortung
 
 logger = logging.getLogger(__name__)
@@ -58,41 +54,41 @@ servicelog_total = blitzortung.db.servicelog_total()
 servicelog_version = blitzortung.db.servicelog_version()
 servicelog_country = blitzortung.db.servicelog_country()
 
-for json_file_name in json_file_names: 
+for json_file_name in json_file_names:
     with open(json_file_name, 'r') as json_file:
-    	
+
         data = json.load(json_file)
 
-	timestamp = datetime.datetime.fromtimestamp(data['timestamp'])
+        timestamp = datetime.datetime.fromtimestamp(data['timestamp'])
 
-	total_count = len(data['get_strikes_grid'])
-	print(timestamp.strftime("%Y-%m-%d %H:%M:%S"), total_count )
+        total_count = len(data['get_strikes_grid'])
+        print(timestamp.strftime("%Y-%m-%d %H:%M:%S"), total_count)
 
-	versions = collections.defaultdict(int)
-	countries = collections.defaultdict(int)
+        versions = collections.defaultdict(int)
+        countries = collections.defaultdict(int)
 
-	for entry in data['get_strikes_grid']:
-	    remote_address = entry[5]
-	    if is_valid_ip_address(remote_address):
-		user_agent = entry[6]
-		version = "n/a"
-		version_prefix = 'bo-android-'
-		if user_agent and user_agent.startswith(version_prefix):
-		    version = int(user_agent[len(version_prefix):].split(' ')[0])
-		versions[version] += 1
+        for entry in data['get_strikes_grid']:
+            remote_address = entry[5]
+            if is_valid_ip_address(remote_address):
+                user_agent = entry[6]
+                version = "n/a"
+                version_prefix = 'bo-android-'
+                if user_agent and user_agent.startswith(version_prefix):
+                    version = int(user_agent[len(version_prefix):].split(' ')[0])
+                versions[version] += 1
 
-		geo_info = geoip.record_by_addr(remote_address)
-		country_code = "n/a"
-		if geo_info:
-		    country_code = geo_info['country_code']
-		countries[country_code] += 1
+                geo_info = geoip.record_by_addr(remote_address)
+                country_code = "n/a"
+                if geo_info:
+                    country_code = geo_info['country_code']
+                countries[country_code] += 1
 
-	servicelog_total.insert(timestamp, total_count)
+        servicelog_total.insert(timestamp, total_count)
 
-	for version, version_count in versions.items():
-	    servicelog_version.insert(timestamp, version, version_count)
-	for country, country_count in countries.items():
-	    servicelog_country.insert(timestamp, country, country_count)
+        for version, version_count in versions.items():
+            servicelog_version.insert(timestamp, version, version_count)
+        for country, country_count in countries.items():
+            servicelog_country.insert(timestamp, country, country_count)
 
     os.unlink(json_file_name)
 
