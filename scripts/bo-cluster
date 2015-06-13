@@ -40,7 +40,7 @@ root_logger.addHandler(blitzortung.logger.create_console_handler())
 def detect_clusters(strikes_db, start_time, duration):
     end_time = start_time + duration
     time_interval = blitzortung.db.query.TimeInterval(start_time, end_time)
-    strikes = strikes_db.select(time_interval)
+    strikes = strikes_db.select(time_interval=time_interval)
 
     clustering = blitzortung.clustering.Clustering(blitzortung.builder.StrikeCluster())
 
