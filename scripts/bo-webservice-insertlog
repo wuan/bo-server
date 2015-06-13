@@ -100,10 +100,11 @@ for json_file_name in json_file_names:
         for country, country_count in countries.items():
             servicelog_country.insert(timestamp, country, country_count)
         for parameters, parameters_count in parameters.items():
-            servicelog_parameters.insert(*parameters)
+            servicelog_parameters.insert(timestamp, *parameters, count=parameters_count)
 
     os.unlink(json_file_name)
 
 servicelog_total.commit()
 servicelog_version.commit()
 servicelog_country.commit()
+servicelog_parameters.commit()
