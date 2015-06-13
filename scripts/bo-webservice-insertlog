@@ -53,6 +53,7 @@ json_file_names.sort()
 servicelog_total = blitzortung.db.servicelog_total()
 servicelog_version = blitzortung.db.servicelog_version()
 servicelog_country = blitzortung.db.servicelog_country()
+servicelog_parameters = blitzortung.db.servicelog_parameters()
 
 for json_file_name in json_file_names:
     with open(json_file_name, 'r') as json_file:
@@ -66,22 +67,31 @@ for json_file_name in json_file_names:
 
         versions = collections.defaultdict(int)
         countries = collections.defaultdict(int)
+        parameters = collections.defaultdict(int)
 
         for entry in data['get_strikes_grid']:
             remote_address = entry[5]
+
             if is_valid_ip_address(remote_address):
                 user_agent = entry[6]
-                version = "n/a"
+                version = None
                 version_prefix = 'bo-android-'
                 if user_agent and user_agent.startswith(version_prefix):
                     version = int(user_agent[len(version_prefix):].split(' ')[0])
                 versions[version] += 1
 
                 geo_info = geoip.record_by_addr(remote_address)
-                country_code = "n/a"
-                if geo_info:
-                    country_code = geo_info['country_code']
+                country_code = geo_info['country_code'] if geo_info else None
                 countries[country_code] += 1
+
+            region = entry[3]
+            minute_length = entry[0]
+            grid_baselength = entry[1]
+            minute_offset = entry[2]
+            count_threshold = entry[4]
+
+            key = (region, minute_length, minute_offset, grid_baselength, count_threshold)
+            parameters[key] += 1
 
         servicelog_total.insert(timestamp, total_count)
 
@@ -89,6 +99,8 @@ for json_file_name in json_file_names:
             servicelog_version.insert(timestamp, version, version_count)
         for country, country_count in countries.items():
             servicelog_country.insert(timestamp, country, country_count)
+        for parameters, parameters_count in parameters.items():
+            servicelog_parameters.insert(*parameters)
 
     os.unlink(json_file_name)
 
