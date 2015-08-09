@@ -229,6 +229,7 @@ class Blitzortung(jsonrpc.JSONRPC):
         minute_offset = self.__force_range(id_or_offset, -24 * 60 + minute_length,
                                            0) if id_or_offset < 0 else 0
 
+        client = self.get_request_client(request)
 	user_agent = request.getHeader("User-Agent")
         print('"get_strikes(%d, %d)" %s "%s DISABLED"' % (minute_length, id_or_offset, client, user_agent))
 	return None
@@ -241,7 +242,6 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         combined_result = self.strike_query.combine_result(strikes_result, histogram_result, state)
 
-        client = self.get_request_client(request)
         print('"get_strikes(%d, %d)" %s "%s"' % (minute_length, id_or_offset, client, user_agent))
         return combined_result
 
