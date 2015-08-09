@@ -312,12 +312,12 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         station_data = tuple(
             (
-                station.get_number(),
-                station.get_name(),
-                station.get_country(),
-                station.get_x(),
-                station.get_y(),
-                station.get_timestamp().strftime("%Y%m%dT%H:%M:%S.%f")[:-3] if station.get_timestamp() else ''
+                station.number,
+                station.name,
+                station.country,
+                station.x,
+                station.y,
+                station.timestamp.strftime("%Y%m%dT%H:%M:%S.%f")[:-3] if station.timestamp else ''
             )
             for station in stations
         )

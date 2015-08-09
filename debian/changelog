@@ -1,3 +1,9 @@
+python-blitzortung (1.5.0) unstable; urgency=low
+
+  * adapted to use of python properties instead of getters in module
+
+ -- Andreas Wuerl <blitzortung@tryb.de>  Sun, 09 Aug 2015 15:47:23 +0200
+
 blitzortung-server (1.4.0) unstable; urgency=low
 
   * speed optimizations
