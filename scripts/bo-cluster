@@ -91,14 +91,14 @@ def import_clusters(options):
                 cluster_db.insert(cluster)
 
                 cluster_count += 1
-                strike_count += cluster.get_strike_count()
-                cluster_group_strike_count += cluster.get_strike_count()
+                strike_count += cluster.strike_count
+                cluster_group_strike_count += cluster.strike_count
                 if cluster_count % cluster_group_size == 0:
                     cluster_db.commit()
                     group_timedelta = (time.time() - start_time)
                     logger.info("commit #{} ({:.1f} clusters/s, {:.1f} strikes/s) @{}".format(
                         cluster_count, cluster_group_size / group_timedelta,
-                        cluster_group_strike_count / group_timedelta, cluster.get_timestamp()))
+                        cluster_group_strike_count / group_timedelta, cluster.timestamp))
                     start_time = time.time()
                     cluster_group_strike_count = 0
 
@@ -121,7 +121,7 @@ def dump_clusters(options):
     clusters = cluster_db.select(latest_time, interval_duration, 1, datetime.timedelta(seconds=0))
 
     cluster_data = tuple(
-        (mapping(cluster.get_shape())['coordinates'], cluster.get_strike_count()) for cluster in clusters)
+        (mapping(cluster.shape)['coordinates'], cluster.strike_count) for cluster in clusters)
 
     reference_time = latest_time
     interval_seconds = int(interval_duration.total_seconds())
