@@ -88,38 +88,38 @@ def import_station_info_for(region):
         stations = station_db.select(region=region)
         stations_by_number = {}
         for station in stations:
-            stations_by_number[station.get_number()] = station
+            stations_by_number[station.number] = station
 
         stations_offline = station_offline_db.select(region=region)
         stations_offline_by_number = {}
         for station_offline in stations_offline:
-            stations_offline_by_number[station_offline.get_number()] = station_offline
+            stations_offline_by_number[station_offline.number] = station_offline
 
         now = datetime.datetime.utcnow()
         offline_limit_time = now - datetime.timedelta(minutes=30)
         offline_limit_time = offline_limit_time.replace(tzinfo=pytz.UTC)
 
         for station in current_stations:
-            if station.is_valid():
+            if station.is_valid:
                 imported_station_count += 1
-                if station.get_number() not in stations_by_number or \
-                                                        station.get_number() in stations_by_number and \
-                                                        station.get_name() == stations_by_number[
-                                                    station.get_number()].get_name() and \
-                                                station != stations_by_number[station.get_number()] and \
-                                timestamp_is_newer_than(station.get_timestamp(),
-                                                        stations_by_number[station.get_number()].get_timestamp()):
+                if station.number not in stations_by_number or \
+                                                        station.number in stations_by_number and \
+                                                        station.name == stations_by_number[
+                                                    station.number].name and \
+                                                station != stations_by_number[station.number] and \
+                                timestamp_is_newer_than(station.timestamp,
+                                                        stations_by_number[station.number].timestamp):
                     station_db.insert(station, region)
 
-                if station.get_timestamp() is None or station.get_timestamp() >= offline_limit_time:
-                    if station.get_number() in stations_offline_by_number:
-                        station_offline = stations_offline_by_number[station.get_number()]
-                        station_offline.set_end(station.get_timestamp())
+                if station.timestamp is None or station.timestamp >= offline_limit_time:
+                    if station.number in stations_offline_by_number:
+                        station_offline = stations_offline_by_number[station.number]
+                        station_offline.end = station.timestamp
                         station_offline_db.update(station_offline, region)
                 else:
-                    if station.get_number() not in stations_offline_by_number and station.get_timestamp().date().year > 2000:
-                        station_offline = blitzortung.data.StationOffline(0, station.get_number(),
-                                                                          station.get_timestamp())
+                    if station.number not in stations_offline_by_number and station.timestamp.date().year > 2000:
+                        station_offline = blitzortung.data.StationOffline(0, station.number,
+                                                                          station.timestamp)
                         station_offline_db.insert(station_offline, region)
             else:
                 logger.debug("INVALID: %s", station)

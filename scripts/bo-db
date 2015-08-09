@@ -191,8 +191,8 @@ if __name__ == '__main__':
 
         strike_count = 0
         for strike in strikes:
-            location_x = round(strike.get_x() * precision_factor) / precision_factor
-            location_y = round(strike.get_y() * precision_factor) / precision_factor
+            location_x = round(strike.x * precision_factor) / precision_factor
+            location_y = round(strike.y * precision_factor) / precision_factor
             strike_count += 1
             print(str(strike))
 
