@@ -61,46 +61,47 @@ for json_file_name in json_file_names:
         data = json.load(json_file)
 
         timestamp = datetime.datetime.fromtimestamp(data['timestamp'])
+	
+	if 'get_strikes_grid' in data:
+	    total_count = len(data['get_strikes_grid'])
+	    print(timestamp.strftime("%Y-%m-%d %H:%M:%S"), total_count)
 
-        total_count = len(data['get_strikes_grid'])
-        print(timestamp.strftime("%Y-%m-%d %H:%M:%S"), total_count)
+	    versions = collections.defaultdict(int)
+	    countries = collections.defaultdict(int)
+	    parameters = collections.defaultdict(int)
 
-        versions = collections.defaultdict(int)
-        countries = collections.defaultdict(int)
-        parameters = collections.defaultdict(int)
+	    for entry in data['get_strikes_grid']:
+		remote_address = entry[5]
 
-        for entry in data['get_strikes_grid']:
-            remote_address = entry[5]
+		if is_valid_ip_address(remote_address):
+		    user_agent = entry[6]
+		    version = None
+		    version_prefix = 'bo-android-'
+		    if user_agent and user_agent.startswith(version_prefix):
+			version = int(user_agent[len(version_prefix):].split(' ')[0])
+		    versions[version] += 1
 
-            if is_valid_ip_address(remote_address):
-                user_agent = entry[6]
-                version = None
-                version_prefix = 'bo-android-'
-                if user_agent and user_agent.startswith(version_prefix):
-                    version = int(user_agent[len(version_prefix):].split(' ')[0])
-                versions[version] += 1
+		    geo_info = geoip.record_by_addr(remote_address)
+		    country_code = geo_info['country_code'] if geo_info else None
+		    countries[country_code] += 1
 
-                geo_info = geoip.record_by_addr(remote_address)
-                country_code = geo_info['country_code'] if geo_info else None
-                countries[country_code] += 1
+		region = entry[3]
+		minute_length = entry[0]
+		grid_baselength = entry[1]
+		minute_offset = entry[2]
+		count_threshold = entry[4]
 
-            region = entry[3]
-            minute_length = entry[0]
-            grid_baselength = entry[1]
-            minute_offset = entry[2]
-            count_threshold = entry[4]
+		key = (region, minute_length, minute_offset, grid_baselength, count_threshold)
+		parameters[key] += 1
 
-            key = (region, minute_length, minute_offset, grid_baselength, count_threshold)
-            parameters[key] += 1
+	    servicelog_total.insert(timestamp, total_count)
 
-        servicelog_total.insert(timestamp, total_count)
-
-        for version, version_count in versions.items():
-            servicelog_version.insert(timestamp, version, version_count)
-        for country, country_count in countries.items():
-            servicelog_country.insert(timestamp, country, country_count)
-        for parameters, parameters_count in parameters.items():
-            servicelog_parameters.insert(timestamp, *parameters, count=parameters_count)
+	    for version, version_count in versions.items():
+		servicelog_version.insert(timestamp, version, version_count)
+	    for country, country_count in countries.items():
+		servicelog_country.insert(timestamp, country, country_count)
+	    for parameters, parameters_count in parameters.items():
+		servicelog_parameters.insert(timestamp, *parameters, count=parameters_count)
 
     os.unlink(json_file_name)
 
