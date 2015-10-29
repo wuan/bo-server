@@ -49,7 +49,7 @@ def import_strikes_for(region, start_time):
         if strike_count % strike_group_size == 0:
             strike_db.commit()
             logger.info("commit #{} ({:.1f}/s) @{}".format(
-                strike_count, strike_group_size / (time.time() - start_time), strike.get_timestamp()))
+                strike_count, strike_group_size / (time.time() - start_time), strike.timestamp))
             start_time = time.time()
 
     strike_db.commit()
