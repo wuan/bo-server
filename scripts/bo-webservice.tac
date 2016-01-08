@@ -224,8 +224,6 @@ class Blitzortung(jsonrpc.JSONRPC):
     @with_request
     def jsonrpc_get_strikes(self, request, minute_length, id_or_offset=0):
         minute_length = self.__force_range(minute_length, 0, 24 * 60)
-        minute_offset = self.__force_range(id_or_offset, -24 * 60 + minute_length,
-                                           0) if id_or_offset < 0 else 0
 
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
@@ -235,7 +233,8 @@ class Blitzortung(jsonrpc.JSONRPC):
         strikes_result, state = self.strike_query.create(id_or_offset, minute_length, minute_offset,
                                                          self.connection_pool, statsd_client)
 
-        minute_offset = -id_or_offset if id_or_offset < 0 else 0
+        minute_offset = self.__force_range(id_or_offset, -24 * 60 + minute_length,
+                                           0) if id_or_offset < 0 else 0
         histogram_result = self.get_histogram(minute_length, minute_offset)
 
         combined_result = self.strike_query.combine_result(strikes_result, histogram_result, state)
