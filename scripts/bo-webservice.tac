@@ -222,19 +222,15 @@ class Blitzortung(jsonrpc.JSONRPC):
         return {'count': self.check_count}
 
     @with_request
-    def jsonrpc_get_strokes(self, request, minute_length, id_or_offset=0):
-        return self.jsonrpc_get_strikes(request, minute_length, id_or_offset)
-
-    @with_request
     def jsonrpc_get_strikes(self, request, minute_length, id_or_offset=0):
         minute_length = self.__force_range(minute_length, 0, 24 * 60)
         minute_offset = self.__force_range(id_or_offset, -24 * 60 + minute_length,
                                            0) if id_or_offset < 0 else 0
 
         client = self.get_request_client(request)
-	user_agent = request.getHeader("User-Agent")
+        user_agent = request.getHeader("User-Agent")
         print('"get_strikes(%d, %d)" %s "%s DISABLED"' % (minute_length, id_or_offset, client, user_agent))
-	return None
+        return None
 
         strikes_result, state = self.strike_query.create(id_or_offset, minute_length, minute_offset,
                                                          self.connection_pool, statsd_client)
@@ -290,7 +286,7 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         self.__check_period()
         self.current_data['get_strikes_grid'].append(
-            (minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
+                (minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
 
         return response
 
@@ -316,15 +312,15 @@ class Blitzortung(jsonrpc.JSONRPC):
         statsd_client.timing('stations.query', max(1, int((query_time - reference_time) * 1000)))
 
         station_data = tuple(
-            (
-                station.number,
-                station.name,
-                station.country,
-                station.x,
-                station.y,
-                station.timestamp.strftime("%Y%m%dT%H:%M:%S.%f")[:-3] if station.timestamp else ''
-            )
-            for station in stations
+                (
+                    station.number,
+                    station.name,
+                    station.country,
+                    station.x,
+                    station.y,
+                    station.timestamp.strftime("%Y%m%dT%H:%M:%S.%f")[:-3] if station.timestamp else ''
+                )
+                for station in stations
         )
 
         response = {'stations': station_data}
