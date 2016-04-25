@@ -75,10 +75,12 @@ for json_file_name in json_file_names:
 
                 if is_valid_ip_address(remote_address):
                     user_agent = entry[6]
+                    user_agent_parts = user_agent.split(' ')[0].rsplit('-', 1)
+                    version_prefix = user_agent_parts[0]
+                    version_string = user_agent_parts[1] if len(user_agent_parts) > 1 else None
                     version = None
-                    version_prefix = 'bo-android-'
-                    if user_agent and user_agent.startswith(version_prefix):
-                        version = int(user_agent[len(version_prefix):].split(' ')[0])
+                    if user_agent and user_agent == 'bo-android':
+                        version = int(version_string)
                     versions[version] += 1
 
                     geo_info = geoip.record_by_addr(remote_address)
