@@ -284,7 +284,7 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         self.__check_period()
         self.current_data['get_strikes_grid'].append(
-                (minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
+            (minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
 
         return response
 
@@ -310,15 +310,15 @@ class Blitzortung(jsonrpc.JSONRPC):
         statsd_client.timing('stations.query', max(1, int((query_time - reference_time) * 1000)))
 
         station_data = tuple(
-                (
-                    station.number,
-                    station.name,
-                    station.country,
-                    station.x,
-                    station.y,
-                    station.timestamp.strftime("%Y%m%dT%H:%M:%S.%f")[:-3] if station.timestamp else ''
-                )
-                for station in stations
+            (
+                station.number,
+                station.name,
+                station.country,
+                station.x,
+                station.y,
+                station.timestamp.strftime("%Y%m%dT%H:%M:%S.%f")[:-3] if station.timestamp else ''
+            )
+            for station in stations
         )
 
         response = {'stations': station_data}

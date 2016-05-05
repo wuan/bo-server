@@ -26,7 +26,7 @@ def main():
     time_range = blitzortung.db.query.TimeInterval(start_time, end_time)
 
     strikes = list(strike_db.select(time_range))
-    print(len(strikes),"strikes")
+    print(len(strikes), "strikes")
 
     crs = ccrs.PlateCarree()
 
@@ -60,4 +60,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

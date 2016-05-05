@@ -34,7 +34,7 @@ while True:
                 strike_builder.set_y(entry[1])
                 strike_builder.set_lateral_error(entry[4])
                 strike = strike_builder.build()
-                print(strike, ("%.2f" % entry[0] if index == len(strike_data)-1 else ""))
+                print(strike, ("%.2f" % entry[0] if index == len(strike_data) - 1 else ""))
             time.sleep(5)
         else:
             print("skipped")

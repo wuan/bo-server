@@ -14,7 +14,7 @@ def get_strikes(target_url, time_interval=60, show_results=False):
 
     session = requests.Session()
 
-#    while True:
+    #    while True:
     request = {
         'jsonrpc': 2.0,
         'method': 'get_strikes',
@@ -35,7 +35,6 @@ def get_strikes(target_url, time_interval=60, show_results=False):
 
         if 'next' in result:
             next_index = result['next']
-
 
 
 def get_strikes_grid(target_url, time_interval=120000, grid_baselength=5000, minute_offset=0, region=1,
@@ -110,6 +109,3 @@ for arg in args:
     method(arg, **option_map)
     if options.show_timing:
         print(" %.03fs %s" % (time.time() - reference_time, arg))
-
-
-

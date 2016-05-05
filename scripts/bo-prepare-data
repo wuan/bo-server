@@ -17,7 +17,7 @@ now = datetime.datetime.utcnow()
 start_time = now - datetime.timedelta(hours=2)
 start_time = start_time.replace(second=0, microsecond=0)
 
-#start_time = start_time.replace(day=10, month=11, hour=20, minute=0)
+# start_time = start_time.replace(day=10, month=11, hour=20, minute=0)
 
 end_time = start_time + datetime.timedelta(minutes=59)
 
@@ -127,12 +127,12 @@ with open('strokes.txt', 'w') as output_file:
                     fit_events.append(event)
                     if abs(us_residual) < 10:
                         exact_event_count += 1
-                results.append("    %d %.1f" % ( idx, us_residual))
+                results.append("    %d %.1f" % (idx, us_residual))
 
             if len(fit_events) >= 6:
                 print "  analytic: %d %s %.4f %.4f %d/%d/%d " % (
-                index, str(three_point_solution.get_timestamp()), three_point_solution.get_x(),
-                three_point_solution.get_y(), exact_event_count, len(fit_events), len(events))
+                    index, str(three_point_solution.get_timestamp()), three_point_solution.get_x(),
+                    three_point_solution.get_y(), exact_event_count, len(fit_events), len(events))
 
                 for index, event in enumerate(fit_events):
                     event.azimuth = three_point_solution.azimuth_to(event)
@@ -153,13 +153,13 @@ with open('strokes.txt', 'w') as output_file:
                 distance_range = distance_max - distance_min
 
                 print "            distance: %.1f - %.1f km, azimuth: %.1f° - %.1f° (delta %.1f°)" % (
-                distance_min / 1000, distance_max / 1000, azimuth_min / math.pi * 180, azimuth_max / math.pi * 180,
-                azimuth_range / math.pi * 180)
+                    distance_min / 1000, distance_max / 1000, azimuth_min / math.pi * 180, azimuth_max / math.pi * 180,
+                    azimuth_range / math.pi * 180)
 
                 for event in fit_events:
                     print "      %6.1f %2d %6.1f %2d %6.1f %s" % (
-                    three_point_solution.get_residual_time_at(event), event.distance_index, event.distance / 1000,
-                    event.azimuth_index, event.azimuth / math.pi * 180, str(event))
+                        three_point_solution.get_residual_time_at(event), event.distance_index, event.distance / 1000,
+                        event.azimuth_index, event.azimuth / math.pi * 180, str(event))
 
                 least_fit_events = fit_events[:12]
                 ls_fit = blitzortung.calc.LeastSquareFit(three_point_solution, least_fit_events, signal_velocity)
@@ -172,10 +172,11 @@ with open('strokes.txt', 'w') as output_file:
                 three_point_to_fit_distance = three_point_solution.distance_to(fit_solution)
 
                 print "    LS-Fit: iterations: %d, sum: %.1f, change: %.5f, 3p_fit_dist: %.1f, param: %s" % (
-                ls_fit.get_number_of_iterations(), ls_fit.get_least_square_sum(), ls_fit.get_least_square_change(),
-                three_point_to_fit_distance / 1000, ' '.join(['%.3f' % ls_fit.parameters[index] for index in range(0,
-                                                                                                                   len(
-                                                                                                                       ls_fit.parameters))])), ls_fit.is_successful()
+                    ls_fit.get_number_of_iterations(), ls_fit.get_least_square_sum(), ls_fit.get_least_square_change(),
+                    three_point_to_fit_distance / 1000,
+                    ' '.join(['%.3f' % ls_fit.parameters[index] for index in range(0,
+                                                                                   len(
+                                                                                       ls_fit.parameters))])), ls_fit.is_successful()
 
                 if ls_fit.is_successful() and ls_fit.get_least_square_sum() < 20.0:
                     consumed_count = 0
@@ -185,9 +186,9 @@ with open('strokes.txt', 'w') as output_file:
                             consumed_count += 1
 
                     output_file.write("%s %d %d %d %.1f %.1f %.1f %.1f %.1f\n" % (
-                    str(fit_solution), len(least_fit_events), len(fit_events), consumed_count,
-                    ls_fit.get_least_square_sum(), three_point_to_fit_distance / 1000, distance_min / 1000,
-                    distance_max / 1000, azimuth_range / math.pi * 180))
+                        str(fit_solution), len(least_fit_events), len(fit_events), consumed_count,
+                        ls_fit.get_least_square_sum(), three_point_to_fit_distance / 1000, distance_min / 1000,
+                        distance_max / 1000, azimuth_range / math.pi * 180))
 
                 values = np.zeros(len(least_fit_events))
                 for index, event in enumerate(least_fit_events):
@@ -198,8 +199,5 @@ with open('strokes.txt', 'w') as output_file:
                 print "median:", np.average(values), "variance:", np.var(values), "std deviation:", np.std(values)
 
 
-#for result in results:
+# for result in results:
 #	  print result
-	  
-
-

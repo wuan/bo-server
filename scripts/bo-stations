@@ -22,7 +22,8 @@ def print_stations(stations):
         total_count += 1
         offline_count += 1 if station.is_offline() else 0
         print(unicode(station))
-    print("{} stations total, {} ({:.1f}%) offline".format(total_count, offline_count, 100 * offline_count / total_count))
+    print(
+        "{} stations total, {} ({:.1f}%) offline".format(total_count, offline_count, 100 * offline_count / total_count))
 
 
 if __name__ == "__main__":

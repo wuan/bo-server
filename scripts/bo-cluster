@@ -98,7 +98,7 @@ def import_clusters(options):
                     group_timedelta = (time.time() - start_time)
                     logger.info("commit #{} ({:.1f} clusters/s, {:.1f} strikes/s) @{}".format(
                         cluster_count, cluster_group_size / group_timedelta,
-                        cluster_group_strike_count / group_timedelta, cluster.timestamp))
+                                       cluster_group_strike_count / group_timedelta, cluster.timestamp))
                     start_time = time.time()
                     cluster_group_strike_count = 0
 
@@ -154,4 +154,3 @@ if __name__ == "__main__":
         dump_clusters(options)
     elif options.mode == 'import':
         import_clusters(options)
-

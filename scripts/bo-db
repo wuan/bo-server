@@ -186,7 +186,6 @@ if __name__ == '__main__':
     else:
         strikes = strike_db.select(time_interval=time_interval, geometry=area, order=order)
 
-
         precision_factor = math.pow(10.0, options.precision)
 
         strike_count = 0

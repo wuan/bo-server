@@ -57,4 +57,4 @@ for index, station_id in enumerate(station_ids):
             count += 1
 
         if count > 0:
-           logger.info("station {}: {} events".format(station_id, count))
+            logger.info("station {}: {} events".format(station_id, count))
