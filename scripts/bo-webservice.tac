@@ -269,6 +269,7 @@ class Blitzortung(jsonrpc.JSONRPC):
                                  count_threshold=0):
         grid_base_length = self.__force_min(grid_base_length, 5000)
         minute_length = self.__force_range(minute_length, 0, 24 * 60)
+        minute_length = 60 if minute_length == 0 else minute_length
         minute_offset = self.__force_range(minute_offset, -24 * 60 + minute_length, 0)
         region = self.__force_min(region, 1)
         count_threshold = self.__force_min(count_threshold, 0)
