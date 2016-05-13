@@ -37,7 +37,7 @@ def get_strikes(target_url, time_interval=60, show_results=False):
             next_index = result['next']
 
 
-def get_strikes_grid(target_url, time_interval=120000, grid_baselength=5000, minute_offset=0, region=1,
+def get_strikes_grid(target_url, time_interval=60, grid_baselength=10000, minute_offset=1, region=1,
                      show_results=False):
     session = requests.Session()
 
@@ -48,30 +48,34 @@ def get_strikes_grid(target_url, time_interval=120000, grid_baselength=5000, min
         'id': 123
     }
 
-    response = session.post(target_url, data=json.dumps(request)).json()
+    response = session.post(target_url, data=json.dumps(request))
 
-    if show_results and 'result' in response:
-        result = response['result']
+    if show_results:
+        json_response = response.json()
+        if 'result' in json_response:
+            result = json_response['result']
 
-        if result:
-            grid_data = result['r']
-            reference_time = datetime.datetime.strptime(result['t'], '%Y%m%dT%H:%M:%S')
+            if result:
+                grid_data = result['r']
+                reference_time = datetime.datetime.strptime(result['t'], '%Y%m%dT%H:%M:%S')
 
-            for grid_element in grid_data:
-                print(grid_element[0], grid_element[1], grid_element[2],
-                      reference_time + datetime.timedelta(seconds=grid_element[3]))
+                for grid_element in grid_data:
+                    print(grid_element[0], grid_element[1], grid_element[2],
+                          reference_time + datetime.timedelta(seconds=grid_element[3]))
 
         else:
-            print("no result!", response)
+            print("no result!", json_response)
+    else:
+        print("received {} bytes".format(len(response.content)))
 
 
-def check():
+def check(target_url):
     request = {
         'jsonrpc': 2.0,
         'method': 'check'
     }
 
-    response = requests.post('http://localhost:7080/', data=json.dumps(request)).json()
+    response = requests.post(target_url, data=json.dumps(request)).json()
 
     print(response)
 
@@ -88,6 +92,7 @@ parser.add_option("-m", "--method-name", dest="method_name", help="selected meth
                   default=method_map.keys()[0])
 
 parser.add_option("-i", "--time-interval", dest="time_interval", type="int", default=None)
+parser.add_option("-u", "--url", dest="url", type="string", default="http://bo-service.tryb.de")
 parser.add_option("-s", "--show-results", dest="show_results", action="store_true", default=False)
 parser.add_option("-t", "--show-timing", dest="show_timing", action="store_true", default=False)
 
@@ -104,8 +109,7 @@ for option_key in option_keys:
         if value is not None:
             option_map[option_key] = value
 
-for arg in args:
-    reference_time = time.time()
-    method(arg, **option_map)
-    if options.show_timing:
-        print(" %.03fs %s" % (time.time() - reference_time, arg))
+reference_time = time.time()
+method(options.url, **option_map)
+if options.show_timing:
+    print(" %.03fs" % (time.time() - reference_time))
