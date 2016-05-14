@@ -281,6 +281,9 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
+
+        self.fix_bad_accept_header(request, user_agent)
+
         print('"get_strikes_grid(%d, %d, %d, %d, >=%d)" "%.1f%%" %s "%s"' % (
             minute_length, grid_base_length, minute_offset, region, count_threshold,
             self.strikes_grid_cache.get_ratio() * 100, client, user_agent))
@@ -290,6 +293,16 @@ class Blitzortung(jsonrpc.JSONRPC):
             (minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
 
         return response
+
+    def fix_bad_accept_header(self, request, user_agent):
+        user_agent_parts = user_agent.split(' ')[0].rsplit('-', 1)
+        version_string = user_agent_parts[1] if len(user_agent_parts) > 1 else None
+        if user_agent_parts[0] == 'bo-android':
+            version = int(version_string)
+        else:
+            version = None
+        if version and version <= 177:
+            request.requestHeaders.removeHeader("Accept-Encoding")
 
     def get_histogram(self, minute_length, minute_offset, region=None, envelope=None):
         return self.histogram_cache.get(self.histogram_query.create,
