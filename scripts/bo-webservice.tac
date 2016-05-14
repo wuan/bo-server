@@ -295,14 +295,15 @@ class Blitzortung(jsonrpc.JSONRPC):
         return response
 
     def fix_bad_accept_header(self, request, user_agent):
-        user_agent_parts = user_agent.split(' ')[0].rsplit('-', 1)
-        version_string = user_agent_parts[1] if len(user_agent_parts) > 1 else None
-        if user_agent_parts[0] == 'bo-android':
-            version = int(version_string)
-        else:
-            version = None
-        if version and version <= 177:
-            request.requestHeaders.removeHeader("Accept-Encoding")
+        if user_agent is not None:
+	    user_agent_parts = user_agent.split(' ')[0].rsplit('-', 1)
+	    version_string = user_agent_parts[1] if len(user_agent_parts) > 1 else None
+	    if user_agent_parts[0] == 'bo-android':
+		version = int(version_string)
+	    else:
+		version = None
+	    if version and version <= 177:
+		request.requestHeaders.removeHeader("Accept-Encoding")
 
     def get_histogram(self, minute_length, minute_offset, region=None, envelope=None):
         return self.histogram_cache.get(self.histogram_query.create,
