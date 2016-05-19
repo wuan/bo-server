@@ -161,7 +161,7 @@ class TestRealm(object):
 
 
 grid = {
-    1: blitzortung.geom.GridFactory(-15, 57, 32, 70, UTM_EU),
+    1: blitzortung.geom.GridFactory(-20, 57, 27, 70, UTM_EU),
     2: blitzortung.geom.GridFactory(110, 180, -50, 0, UTM_OCEANIA),
     3: blitzortung.geom.GridFactory(-140, -50, 10, 60, UTM_NORTH_AMERICA),
     4: blitzortung.geom.GridFactory(85, 150, -10, 60, UTM_ASIA),
