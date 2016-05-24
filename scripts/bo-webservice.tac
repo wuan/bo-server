@@ -250,11 +250,18 @@ class Blitzortung(jsonrpc.JSONRPC):
         grid_result, state = self.strike_grid_query.create(grid_parameters, minute_length, minute_offset,
                                                            count_threshold, self.connection_pool, statsd_client)
 
-        histogram_result = self.get_histogram(minute_length, minute_offset, envelope=grid_parameters)
+        histogram_result = self.get_histogram(minute_length, minute_offset, envelope=grid_parameters) \
+            if minute_length > 10 else self.deferred_with([])
 
         combined_result = self.strike_grid_query.combine_result(grid_result, histogram_result, state)
 
         return combined_result
+
+    def deferred_with(self, result):
+        deferred = defer.Deferred()
+        deferred.result = result
+        deferred.called = True
+        return deferred
 
     @with_request
     def jsonrpc_get_strikes_raster(self, request, minute_length, grid_base_length=10000, minute_offset=0, region=1):
@@ -296,14 +303,14 @@ class Blitzortung(jsonrpc.JSONRPC):
 
     def fix_bad_accept_header(self, request, user_agent):
         if user_agent is not None:
-	    user_agent_parts = user_agent.split(' ')[0].rsplit('-', 1)
-	    version_string = user_agent_parts[1] if len(user_agent_parts) > 1 else None
-	    if user_agent_parts[0] == 'bo-android':
-		version = int(version_string)
-	    else:
-		version = None
-	    if version and version <= 177:
-		request.requestHeaders.removeHeader("Accept-Encoding")
+            user_agent_parts = user_agent.split(' ')[0].rsplit('-', 1)
+            version_string = user_agent_parts[1] if len(user_agent_parts) > 1 else None
+            if user_agent_parts[0] == 'bo-android':
+                version = int(version_string)
+            else:
+                version = None
+            if version and version <= 177:
+                request.requestHeaders.removeHeader("Accept-Encoding")
 
     def get_histogram(self, minute_length, minute_offset, region=None, envelope=None):
         return self.histogram_cache.get(self.histogram_query.create,
