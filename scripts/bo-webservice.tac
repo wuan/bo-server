@@ -299,6 +299,8 @@ class Blitzortung(jsonrpc.JSONRPC):
         self.current_data['get_strikes_grid'].append(
             (minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
 
+        statsd_client.incr('get_strikes_grid')
+
         return response
 
     def fix_bad_accept_header(self, request, user_agent):
