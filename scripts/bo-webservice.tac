@@ -299,9 +299,10 @@ class Blitzortung(jsonrpc.JSONRPC):
         self.current_data['get_strikes_grid'].append(
             (minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
 
-        statsd_client.incr('get_strikes_grid')
+        statsd_client.incr('strikes_grid.total_count')
+        statsd_client.gauge('strikes_grid.cache_hits', self.strikes_grid_cache.get_ratio())
         if minute_length == 10:
-            statsd_client.incr('get_strikes_grid_bg')
+            statsd_client.incr('strikes_grid.bg_count')
 
         return response
 
