@@ -14,6 +14,7 @@ import statsd
 import blitzortung.dataimport
 import blitzortung.db
 import blitzortung.logger
+from blitzortung.data import Timestamp
 
 logger = logging.getLogger(os.path.basename(__file__))
 blitzortung.set_parent_logger(logger)
@@ -152,9 +153,9 @@ if __name__ == "__main__":
             blitzortung.set_log_level(logging.DEBUG)
         elif options.verbose:
             blitzortung.set_log_level(logging.INFO)
-        start_time = datetime.datetime.strptime(options.startdate, "%Y%m%d").replace(
-            tzinfo=pytz.UTC) if options.startdate else None
+        start_time = Timestamp(datetime.datetime.strptime(options.startdate, "%Y%m%d").replace(
+            tzinfo=pytz.UTC)) if options.startdate else None
 
         regions = [1, 2, 3]
         import_strikes(regions, start_time)
-        import_station_info(regions)
+        #import_station_info(regions)
