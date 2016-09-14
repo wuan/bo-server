@@ -2,13 +2,13 @@ Source: blitzortung-server
 Section: misc
 Priority: extra
 Maintainer: Andreas Wuerl <blitzortung@tryb.de>
-Build-Depends: debhelper (>= 7), python(>= 2.5), autoconf (>=2.60), automake (>=1.10), libtool (>=1.5), autotools-dev, libboost-regex-dev (>= 1.34.1), libboost-program-options-dev (>= 1.34.1), libboost-date-time-dev (>= 1.34.1), liblog4cpp5-dev (>=1.0), libcppunit-dev (>=1.12.1), libjson0-dev (>=0.9)
+Build-Depends: debhelper (>= 7), python(>= 2.7)
 Standards-Version: 3.9.1
 Homepage: http://launchpad.net/blitzortung-tracker
 
 Package: blitzortung-server
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, python-blitzortung (>=1.5)
+Depends: ${shlibs:Depends}, ${misc:Depends}, python-blitzortung (>=1.6)
 Conflicts:
 Replaces:
 Description: blitzortung.org server software
