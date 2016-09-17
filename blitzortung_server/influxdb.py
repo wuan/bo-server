@@ -7,7 +7,7 @@ class DataPoint(object):
         self.measurement = measurement
         if timestamp is None:
             timestamp = datetime.datetime.utcnow()
-        self.timestamp = calendar.timegm(timestamp.timetuple())
+        self.time = calendar.timegm(timestamp.timetuple())
         self.fields = fields if fields is not None else {}
         self.tags = tags if tags is not None else {}
 
