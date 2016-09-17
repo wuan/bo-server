@@ -68,6 +68,7 @@ for json_file_name in json_file_names:
                 version = None
                 longitude = None
                 latitude = None
+                city = None
                 if is_valid_ip_address(remote_address):
                     user_agent = entry[6]
                     version = None
@@ -79,7 +80,9 @@ for json_file_name in json_file_names:
                             version = int(version_string)
 
                     geo_info = geoip.record_by_addr(remote_address)
-                    print(geo_info)
+                    longitude = round(geo_info['longitude'], 4)
+                    latitude = round(geo_info['latitude'], 4)
+                    city = geo_info['city']
                     country_code = geo_info['country_code'] if geo_info else None
 
                 region = entry[3]
@@ -100,7 +103,8 @@ for json_file_name in json_file_names:
 
                 fields = {
                     'longitude': longitude,
-                    'latitude': latitude
+                    'latitude': latitude,
+                    'city': city
                 }
 
                 data_point = DataPoint("servicelog", tags=tags, fields=fields)
