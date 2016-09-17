@@ -6,7 +6,7 @@ import glob
 
 setup(
     name='blitzortung-server',
-    packages=find_packages(),
+    packages=find_packages(exclude=('tests',)),
     scripts=glob.glob('scripts/*'),
     install_requires=['blitzortung'],
     tests_require=['nose', 'mock', 'coverage', 'assertpy'],

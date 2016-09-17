@@ -39,6 +39,7 @@ from txjsonrpc.web import jsonrpc
 import os
 import time
 import datetime
+import calendar
 import pytz
 import pyproj
 import statsd
@@ -191,12 +192,15 @@ class Blitzortung(jsonrpc.JSONRPC):
 
     addSlash = True
 
+    def __get_epoch(self, timestamp):
+        return calendar.timegm(timestamp.timetuple()) * 1000000 + timestamp.microsecond
+
     def __current_period(self):
         return datetime.datetime.utcnow().replace(second=0, microsecond=0, tzinfo=pytz.UTC)
 
     def __check_period(self):
         if self.current_period != self.__current_period():
-            self.current_data['timestamp'] = int(self.current_period.strftime("%s"))
+            self.current_data['timestamp'] = self.__get_epoch(self.current_period)
             with open(os.path.join(log_directory, self.current_period.strftime("%Y%m%d-%H%M.json")),
                       'w') as output_file:
                 output_file.write(json.dumps(self.current_data))
@@ -295,9 +299,11 @@ class Blitzortung(jsonrpc.JSONRPC):
             minute_length, grid_base_length, minute_offset, region, count_threshold,
             self.strikes_grid_cache.get_ratio() * 100, client, user_agent))
 
+        print(response)
+
         self.__check_period()
         self.current_data['get_strikes_grid'].append(
-            (minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
+            (self.__get_epoch(datetime.datetime.utcnow()), minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
 
         statsd_client.incr('strikes_grid.total_count')
         statsd_client.incr('strikes_grid.total_count.{}'.format(region))
