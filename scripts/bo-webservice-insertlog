@@ -10,10 +10,10 @@ import logging
 from optparse import OptionParser
 import datetime
 import json
-import collections
 
 import GeoIP
-import blitzortung
+
+from blitzortung_server.influxdb import DataPoint
 
 logger = logging.getLogger(__name__)
 logger.addHandler(logging.StreamHandler(sys.stdout))
@@ -50,11 +50,6 @@ json_file_names = glob.glob('/var/log/blitzortung/*.json')
 
 json_file_names.sort()
 
-servicelog_total = blitzortung.db.servicelog_total()
-servicelog_version = blitzortung.db.servicelog_version()
-servicelog_country = blitzortung.db.servicelog_country()
-servicelog_parameters = blitzortung.db.servicelog_parameters()
-
 for json_file_name in json_file_names:
     with open(json_file_name, 'r') as json_file:
 
@@ -66,13 +61,13 @@ for json_file_name in json_file_names:
             total_count = len(data['get_strikes_grid'])
             print(timestamp.strftime("%Y-%m-%d %H:%M:%S"), total_count)
 
-            versions = collections.defaultdict(int)
-            countries = collections.defaultdict(int)
-            parameters = collections.defaultdict(int)
-
             for entry in data['get_strikes_grid']:
                 remote_address = entry[5]
 
+                country_code = None
+                version = None
+                longitude = None
+                latitude = None
                 if is_valid_ip_address(remote_address):
                     user_agent = entry[6]
                     version = None
@@ -82,11 +77,10 @@ for json_file_name in json_file_names:
                         version_string = user_agent_parts[1] if len(user_agent_parts) > 1 else None
                         if version_prefix == 'bo-android':
                             version = int(version_string)
-                    versions[version] += 1
 
                     geo_info = geoip.record_by_addr(remote_address)
+                    print(geo_info)
                     country_code = geo_info['country_code'] if geo_info else None
-                    countries[country_code] += 1
 
                 region = entry[3]
                 minute_length = entry[0]
@@ -94,21 +88,23 @@ for json_file_name in json_file_names:
                 minute_offset = entry[2]
                 count_threshold = entry[4]
 
-                key = (region, minute_length, minute_offset, grid_baselength, count_threshold)
-                parameters[key] += 1
+                tags = {
+                    'region': region,
+                    'grid_baselength': grid_baselength,
+                    'minute_offset': minute_offset,
+                    'minute_length': minute_length,
+                    'count_threshold': count_threshold,
+                    'country_code': country_code,
+                    'version': version
+                }
 
-            servicelog_total.insert(timestamp, total_count)
+                fields = {
+                    'longitude': longitude,
+                    'latitude': latitude
+                }
 
-            for version, version_count in versions.items():
-                servicelog_version.insert(timestamp, version, version_count)
-            for country, country_count in countries.items():
-                servicelog_country.insert(timestamp, country, country_count)
-            for parameters, parameters_count in parameters.items():
-                servicelog_parameters.insert(timestamp, *parameters, count=parameters_count)
+                data_point = DataPoint("servicelog", tags=tags, fields=fields)
+
+                print(data_point.get())
 
     os.unlink(json_file_name)
-
-servicelog_total.commit()
-servicelog_version.commit()
-servicelog_country.commit()
-servicelog_parameters.commit()
