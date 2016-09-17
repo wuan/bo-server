@@ -1,5 +1,4 @@
 import calendar
-import json
 import unittest
 
 import datetime
@@ -14,7 +13,7 @@ class TestAS(unittest.TestCase):
         data_point = DataPoint("meas")
 
         json_repr = data_point.get()
-        assert_that(json.loads(json_repr)).is_equal_to({
+        assert_that(json_repr).is_equal_to({
             "measurement": "meas",
             "timestamp": timestamp,
             "tags": {},
@@ -29,7 +28,7 @@ class TestAS(unittest.TestCase):
         data_point.tags['baz'] = 1234
 
         json_repr = data_point.get()
-        assert_that(json.loads(json_repr)).is_equal_to({
+        assert_that(json_repr).is_equal_to({
             "measurement": "meas",
             "timestamp": timestamp,
             "tags": {'bar': 'qux', 'baz': 1234},
