@@ -12,9 +12,6 @@ class DataPoint(object):
         return {
             'measurement': self.measurement,
             'time': self.time,
-            'tags': self.filter_empty_values(self.tags),
-            'fields': self.filter_empty_values(self.fields)
+            'tags': self.tags,
+            'fields': self.fields
         }
-
-    def filter_empty_values(self, source_dict):
-        return dict((k, v) for k, v in source_dict.iteritems() if v is not None)
