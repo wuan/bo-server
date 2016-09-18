@@ -1,4 +1,3 @@
-import calendar
 import datetime
 
 
@@ -18,4 +17,4 @@ class DataPoint(object):
         }
 
     def filter_empty_values(self, source_dict):
-        return dict((k,v) for k,v in source_dict.iteritems() if v is not None)
+        return dict((k, v) for k, v in source_dict.iteritems() if v is not None)

@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 
 from __future__ import division, print_function
-import psycopg2
-from twisted.internet.defer import gatherResults
-from twisted.internet.error import ReactorAlreadyInstalledError
 
+import psycopg2
+from twisted.internet.error import ReactorAlreadyInstalledError
 from twisted.python import log
 from twisted.web.resource import IResource
 from twisted.web.static import File
@@ -27,7 +26,7 @@ from txjsonrpc.web.jsonrpc import with_request
 from zope.interface import Interface, implements
 from twisted.cred import portal, checkers, credentials, error as credential_error
 from twisted.cred.checkers import InMemoryUsernamePasswordDatabaseDontUse
-from twisted.web import server, http
+from twisted.web import server
 from twisted.web.guard import HTTPAuthSessionWrapper, DigestCredentialFactory
 from twisted.application import service, internet
 from twisted.python.log import ILogObserver, FileLogObserver
@@ -303,14 +302,15 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         self.__check_period()
         self.current_data['get_strikes_grid'].append(
-            (self.__get_epoch(datetime.datetime.utcnow()), minute_length, grid_base_length, minute_offset, region, count_threshold, client, user_agent))
+            (self.__get_epoch(datetime.datetime.utcnow()), minute_length, grid_base_length, minute_offset, region,
+             count_threshold, client, user_agent))
 
         statsd_client.incr('strikes_grid.total_count')
         statsd_client.incr('strikes_grid.total_count.{}'.format(region))
         statsd_client.gauge('strikes_grid.cache_hits', self.strikes_grid_cache.get_ratio())
-        if minute_length == 10:              
-            statsd_client.incr('strikes_grid.bg_count') 
-            statsd_client.incr('strikes_grid.bg_count.{}'.format(region)) 
+        if minute_length == 10:
+            statsd_client.incr('strikes_grid.bg_count')
+            statsd_client.incr('strikes_grid.bg_count.{}'.format(region))
 
         return response
 
