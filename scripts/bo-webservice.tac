@@ -71,6 +71,7 @@ UTM_OCEANIA = pyproj.Proj(init='epsg:32755')  # UTM 55 S / WGS84
 UTM_ASIA = pyproj.Proj(init='epsg:32650')  # UTM 50 N / WGS84
 UTM_AFRICA = pyproj.Proj(init='epsg:32633')  # UTM 33 N / WGS84
 
+FORBIDDEN_IPS = set(['147.32.83.134'])
 
 def connection_factory(*args, **kwargs):
     kwargs['connection_factory'] = psycopg2.extras.DictConnection
@@ -230,6 +231,9 @@ class Blitzortung(jsonrpc.JSONRPC):
 
         client = self.get_request_client(request)
         user_agent = request.getHeader("User-Agent")
+        if client in FORBIDDEN_IPS:
+           print('"get_strikes(%d, %d)" %s "%s BLOCKED"' % (minute_length, id_or_offset, client, user_agent))
+           return None
 
         minute_offset = self.__force_range(id_or_offset, -24 * 60 + minute_length, 0) if id_or_offset < 0 else 0
         strikes_result, state = self.strike_query.create(id_or_offset, minute_length, minute_offset,
